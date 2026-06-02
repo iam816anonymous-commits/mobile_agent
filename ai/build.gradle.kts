@@ -22,4 +22,7 @@ dependencies {
     implementation(project(":core"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.serialization.json)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.android) // for runBlocking
 }

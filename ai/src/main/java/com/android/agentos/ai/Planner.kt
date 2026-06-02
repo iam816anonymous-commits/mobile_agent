@@ -1,8 +1,6 @@
 package com.android.agentos.ai
 
-import com.android.agentos.core.models.LLMProvider
-import com.android.agentos.core.models.Plan
-import com.android.agentos.core.models.ScreenElement
+import com.android.agentos.core.models.*
 
 class Planner(private val llmProvider: LLMProvider) {
 
@@ -13,7 +11,7 @@ class Planner(private val llmProvider: LLMProvider) {
         return llmProvider.generatePlan(userInput, screenContext)
     }
 
-    suspend fun verifyExecution(action: com.android.agentos.core.models.AgentAction, screenContext: List<ScreenElement>): Boolean {
+    suspend fun verifyExecution(action: AgentAction, screenContext: List<ScreenElement>): VerificationResult {
         return llmProvider.verifyAction(action, screenContext)
     }
 }

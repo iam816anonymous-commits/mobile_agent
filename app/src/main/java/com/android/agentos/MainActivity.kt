@@ -19,20 +19,25 @@ import com.android.agentos.core.models.PlanStatus
 import com.android.agentos.core.models.ExecutionResult
 import com.android.agentos.core.engine.Executor
 import com.android.agentos.accessibility.AgentAccessibilityService
+import com.android.agentos.memory.AgentDatabase
+import com.android.agentos.memory.AgentMemoryProvider
+import androidx.room.Room
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val planner = Planner(RuleBasedLLMProvider())
+    private lateinit var db: AgentDatabase
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        db = Room.databaseBuilder(applicationContext, AgentDatabase::class.java, "agent-db").build()
         setContent {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AgentDashboard(planner)
+                    AgentDashboard(planner, db)
                 }
             }
         }
@@ -40,7 +45,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AgentDashboard(planner: Planner) {
+fun AgentDashboard(planner: Planner, db: AgentDatabase) {
     var command by remember { mutableStateOf("") }
     var currentPlan by remember { mutableStateOf<Plan?>(null) }
     var logs by remember { mutableStateOf(listOf<String>()) }
@@ -71,6 +76,7 @@ fun AgentDashboard(planner: Planner) {
                         val executor = Executor(
                             accessibilityProvider = service,
                             verificationProvider = service,
+                            memoryProvider = AgentMemoryProvider(db),
                             onActionStarted = { action ->
                                 logs = logs + "Starting: ${action.type}"
                             },

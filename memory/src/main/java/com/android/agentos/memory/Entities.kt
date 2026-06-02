@@ -14,7 +14,7 @@ data class HabitEntity(
 data class WorkflowEntity(
     @PrimaryKey val id: String,
     val name: String,
-    val stepsJson: String,
+    val graphJson: String,
     val createdTimestamp: Long
 )
 

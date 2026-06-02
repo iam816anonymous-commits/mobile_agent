@@ -8,9 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.android.agentos.core.models.ActionType
-import com.android.agentos.core.models.AgentAction
-import com.android.agentos.core.models.ScreenElement
+import com.android.agentos.core.models.*
 import com.android.agentos.core.models.Rect as ModelRect
 
 import com.android.agentos.core.engine.AccessibilityProvider
@@ -38,6 +36,34 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
     override fun onDestroy() {
         super.onDestroy()
         instance = null
+    }
+
+    override fun getCurrentScreenState(): ScreenState {
+        val packageName = rootInActiveWindow?.packageName?.toString()
+        val elements = getCurrentScreenHierarchy()
+
+        val classification = when {
+            packageName == "com.android.chrome" -> {
+                if (elements.any { it.text?.contains("google.com/search") == true }) ScreenType.CHROME_SEARCH_RESULTS
+                else ScreenType.CHROME_HOME
+            }
+            packageName == "com.google.android.youtube" -> {
+                if (elements.any { it.id?.contains("search_results") == true }) ScreenType.YOUTUBE_SEARCH_RESULTS
+                else ScreenType.YOUTUBE_HOME
+            }
+            packageName == "com.android.settings" -> {
+                if (elements.any { it.text?.contains("Wi-Fi", ignoreCase = true) == true && elements.any { e -> e.text == "Network & internet" } }) ScreenType.SETTINGS_WIFI
+                else ScreenType.SETTINGS_MAIN
+            }
+            else -> ScreenType.UNKNOWN
+        }
+
+        return ScreenState(
+            packageName = packageName,
+            activityName = null, // Can be extracted via some tricks or adb if needed
+            elements = elements,
+            classification = classification
+        )
     }
 
     /**
@@ -167,10 +193,17 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
         return false
     }
 
-    override suspend fun verifyAction(action: AgentAction, screenContext: List<ScreenElement>): Boolean {
+    override suspend fun verifyAction(action: AgentAction, screenContext: List<ScreenElement>): VerificationResult {
         return when (action.type) {
-            ActionType.VERIFY_ELEMENT -> verifyElementVisible(action.target)
-            else -> true // Fallback to basic verification or assume success
+            ActionType.VERIFY_ELEMENT -> {
+                val success = verifyElementVisible(action.target)
+                VerificationResult(success, if (success) 1.0f else 0.0f, if (success) "Element found" else "Element not found")
+            }
+            ActionType.OPEN_APP -> {
+                val success = screenContext.isNotEmpty()
+                VerificationResult(success, if (success) 0.8f else 0.0f)
+            }
+            else -> VerificationResult(true, 1.0f)
         }
     }
 

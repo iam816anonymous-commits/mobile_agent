@@ -53,6 +53,7 @@ dependencies {
     implementation(project(":memory"))
     implementation(project(":tools"))
 
+    implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

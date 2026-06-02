@@ -7,6 +7,7 @@ import kotlinx.coroutines.delay
 class Executor(
     private val accessibilityProvider: AccessibilityProvider,
     private val verificationProvider: VerificationProvider,
+    private val memoryProvider: MemoryProvider,
     private val onActionStarted: (AgentAction) -> Unit,
     private val onActionFinished: (ExecutionResult) -> Unit,
     private val onFailure: (FailureLog) -> Unit
@@ -36,24 +37,32 @@ class Executor(
 
                     // 2. Observe & Verify
                     val screenContext = accessibilityProvider.getCurrentScreenHierarchy()
-                    success = verificationProvider.verifyAction(step, screenContext)
+                    val verification = verificationProvider.verifyAction(step, screenContext)
+                    success = verification.success
+
+                    val result = ExecutionResult(step.id, success, verification.reason ?: (if (success) "Action verified" else "Verification failed"))
+                    memoryProvider.logAction(plan.id, step, result)
 
                     if (success) {
-                        onActionFinished(ExecutionResult(step.id, true, "Action verified successfully"))
+                        onActionFinished(result)
                     } else {
                         Log.w(TAG, "Action verification failed: ${step.type}")
                     }
                 } else {
                     Log.e(TAG, "Action performance failed: ${step.type}")
+                    memoryProvider.logAction(plan.id, step, ExecutionResult(step.id, false, "Performance failed"))
                 }
 
                 if (!success) {
+                    val failure = FailureLog(step.id, "EXECUTION_FAILURE", "Failed at attempt ${retries + 1}")
+                    memoryProvider.logFailure(failure)
+
                     retries++
                     if (retries < MAX_RETRIES) {
                         Log.i(TAG, "Retrying action: ${step.type}")
                         delay(2000L) // Wait longer before retry
                     } else {
-                        onFailure(FailureLog(step.id, "MAX_RETRIES", "Failed after $MAX_RETRIES attempts"))
+                        onFailure(failure)
                         plan.status = PlanStatus.FAILED
                         return
                     }
@@ -67,8 +76,14 @@ class Executor(
 interface AccessibilityProvider {
     fun performAction(action: AgentAction): Boolean
     fun getCurrentScreenHierarchy(): List<ScreenElement>
+    fun getCurrentScreenState(): ScreenState
 }
 
 interface VerificationProvider {
-    suspend fun verifyAction(action: AgentAction, screenContext: List<ScreenElement>): Boolean
+    suspend fun verifyAction(action: AgentAction, screenContext: List<ScreenElement>): VerificationResult
+}
+
+interface MemoryProvider {
+    suspend fun logAction(planId: String, action: AgentAction, result: ExecutionResult)
+    suspend fun logFailure(failure: FailureLog)
 }
