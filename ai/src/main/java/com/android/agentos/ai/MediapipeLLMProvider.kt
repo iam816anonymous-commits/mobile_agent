@@ -43,6 +43,8 @@ class MediapipeLLMProvider(private val context: Context, private val modelPath: 
         }
     }
 
+    var toolRegistry: ToolRegistry? = null
+
     private fun buildPrompt(userInput: String, screenContext: List<ScreenElement>): String {
         val schema = """
             [
@@ -50,10 +52,17 @@ class MediapipeLLMProvider(private val context: Context, private val modelPath: 
               ...
             ]
         """.trimIndent()
+        val toolsMetadata = toolRegistry?.getToolMetadata() ?: "Standard Android Actions"
+
         return """
             System: You are a professional Android agent.
             Goal: $userInput
-            Available Actions: OPEN_APP, CLICK, TYPE_TEXT, SCROLL_UP, SCROLL_DOWN, GO_BACK, WAIT, VERIFY_ELEMENT
+
+            Available Tools & Capabilities:
+            $toolsMetadata
+
+            Global Actions: OPEN_APP, CLICK, TYPE_TEXT, SCROLL_UP, SCROLL_DOWN, GO_BACK, WAIT, VERIFY_ELEMENT
+
             Current Screen Elements: ${screenContext.take(15).map { it.text ?: it.contentDescription }}
 
             Output ONLY a JSON array of actions following this schema:

@@ -7,6 +7,8 @@ import com.android.agentos.core.models.ToolResult
 
 class ChromeTool : Tool {
     override val name: String = "Chrome"
+    override val description: String = "Web browser for searching and viewing websites"
+    override val supportedActions: List<ActionType> = listOf(ActionType.OPEN_APP, ActionType.TYPE_TEXT, ActionType.CLICK, ActionType.VERIFY_ELEMENT)
 
     override fun canHandle(action: AgentAction): Boolean {
         return action.target?.contains("chrome", ignoreCase = true) == true

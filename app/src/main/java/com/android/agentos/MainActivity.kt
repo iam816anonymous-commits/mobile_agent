@@ -51,16 +51,24 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun FailureAnalyticsView(db: AgentDatabase) {
     var totalFailures by remember { mutableStateOf(0) }
+    var totalActions by remember { mutableStateOf(0) }
+    var successActions by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         totalFailures = db.agentDao().getFailureHistory().size
+        val history = db.agentDao().getActionHistory()
+        totalActions = history.size
+        successActions = history.count { it.success }
     }
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Failure Analytics", fontWeight = FontWeight.Bold)
-            Text("Total Failures Recorded: $totalFailures")
+            Text("Reliability Dashboard", fontWeight = FontWeight.Bold)
+            Text("Total Tasks Attempted: $totalActions")
+            val rate = if(totalActions > 0) (successActions.toFloat()/totalActions*100).toInt() else 0
+            Text("Overall Success Rate: $rate%")
+            Text("Total Failures Logged: $totalFailures")
             Text("Recovery Success Rate (Simulated): 85%", style = MaterialTheme.typography.bodySmall)
         }
     }

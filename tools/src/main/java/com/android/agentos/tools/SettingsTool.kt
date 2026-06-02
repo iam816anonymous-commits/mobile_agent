@@ -7,6 +7,8 @@ import com.android.agentos.core.models.ToolResult
 
 class SettingsTool : Tool {
     override val name: String = "Settings"
+    override val description: String = "System settings for Wi-Fi, Bluetooth, and device configuration"
+    override val supportedActions: List<ActionType> = listOf(ActionType.OPEN_APP, ActionType.CLICK)
 
     override fun canHandle(action: AgentAction): Boolean {
         return action.target?.contains("settings", ignoreCase = true) == true

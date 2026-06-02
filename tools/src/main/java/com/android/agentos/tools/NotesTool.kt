@@ -4,6 +4,8 @@ import com.android.agentos.core.models.*
 
 class NotesTool : Tool {
     override val name: String = "Notes"
+    override val description: String = "Note-taking app for creating and managing notes"
+    override val supportedActions: List<ActionType> = listOf(ActionType.OPEN_APP, ActionType.TYPE_TEXT, ActionType.CLICK)
 
     override fun canHandle(action: AgentAction): Boolean {
         return action.target?.contains("notes", ignoreCase = true) == true ||

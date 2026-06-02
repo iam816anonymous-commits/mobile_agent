@@ -20,6 +20,16 @@ class Executor(
     }
 
     var stressTestMode: Boolean = false
+    var adversarialMode: Boolean = false
+
+    private fun simulateAdversarialConditions() {
+        val roll = (1..100).random()
+        when {
+            roll < 5 -> Log.i(TAG, "ADVERSARIAL: Simulating notification popup")
+            roll < 10 -> Log.i(TAG, "ADVERSARIAL: Simulating keyboard appearing")
+            roll < 15 -> Log.i(TAG, "ADVERSARIAL: Simulating network fluctuation")
+        }
+    }
 
     suspend fun execute(plan: Plan) {
         if (plan.status == PlanStatus.COMPLETED || plan.status == PlanStatus.FAILED) return
@@ -39,6 +49,10 @@ class Executor(
                     Log.w(TAG, "STRESS TEST: Simulating unexpected interruption")
                     delay(1000)
                 }
+            }
+
+            if (adversarialMode) {
+                simulateAdversarialConditions()
             }
             var success = false
             var retries = 0

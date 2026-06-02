@@ -7,6 +7,8 @@ import com.android.agentos.core.models.ToolResult
 
 class YouTubeTool : Tool {
     override val name: String = "YouTube"
+    override val description: String = "Video platform for searching and watching videos"
+    override val supportedActions: List<ActionType> = listOf(ActionType.OPEN_APP, ActionType.TYPE_TEXT, ActionType.CLICK)
 
     override fun canHandle(action: AgentAction): Boolean {
         return action.target?.contains("youtube") == true

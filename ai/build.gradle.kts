@@ -20,6 +20,7 @@ android {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":tools"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.mediapipe.tasks.genai)
