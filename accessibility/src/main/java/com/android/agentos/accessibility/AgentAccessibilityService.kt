@@ -13,18 +13,20 @@ import com.android.agentos.core.models.Rect as ModelRect
 
 import com.android.agentos.core.engine.AccessibilityProvider
 import com.android.agentos.core.engine.VerificationProvider
+import com.android.agentos.core.engine.AgentBridge
+import com.android.agentos.ai.classification.ScreenClassifier
 
 class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider, VerificationProvider {
 
+    private val classifier = ScreenClassifier()
+
     companion object {
         private const val TAG = "AgentAccessibility"
-        var instance: AgentAccessibilityService? = null
-            private set
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        instance = this
+        AgentBridge.instance.registerProvider(this, this)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -35,35 +37,13 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
 
     override fun onDestroy() {
         super.onDestroy()
-        instance = null
+        AgentBridge.instance.unregisterProvider()
     }
 
     override fun getCurrentScreenState(): ScreenState {
         val packageName = rootInActiveWindow?.packageName?.toString()
         val elements = getCurrentScreenHierarchy()
-
-        val classification = when {
-            packageName == "com.android.chrome" -> {
-                if (elements.any { it.text?.contains("google.com/search") == true }) ScreenType.CHROME_SEARCH_RESULTS
-                else ScreenType.CHROME_HOME
-            }
-            packageName == "com.google.android.youtube" -> {
-                if (elements.any { it.id?.contains("search_results") == true }) ScreenType.YOUTUBE_SEARCH_RESULTS
-                else ScreenType.YOUTUBE_HOME
-            }
-            packageName == "com.android.settings" -> {
-                if (elements.any { it.text?.contains("Wi-Fi", ignoreCase = true) == true && elements.any { e -> e.text == "Network & internet" } }) ScreenType.SETTINGS_WIFI
-                else ScreenType.SETTINGS_MAIN
-            }
-            else -> ScreenType.UNKNOWN
-        }
-
-        return ScreenState(
-            packageName = packageName,
-            activityName = null, // Can be extracted via some tricks or adb if needed
-            elements = elements,
-            classification = classification
-        )
+        return classifier.classify(packageName, elements)
     }
 
     /**

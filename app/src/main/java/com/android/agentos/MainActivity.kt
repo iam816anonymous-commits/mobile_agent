@@ -17,8 +17,10 @@ import com.android.agentos.ai.RuleBasedLLMProvider
 import com.android.agentos.core.models.Plan
 import com.android.agentos.core.models.PlanStatus
 import com.android.agentos.core.models.ExecutionResult
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.Icons
 import com.android.agentos.core.engine.Executor
-import com.android.agentos.accessibility.AgentAccessibilityService
+import com.android.agentos.core.engine.AgentBridge
 import com.android.agentos.memory.AgentDatabase
 import com.android.agentos.memory.AgentMemoryProvider
 import androidx.room.Room
@@ -45,14 +47,38 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+fun FailureAnalyticsView(db: AgentDatabase) {
+    var totalFailures by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        totalFailures = db.agentDao().getFailureHistory().size
+    }
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Failure Analytics", fontWeight = FontWeight.Bold)
+            Text("Total Failures Recorded: $totalFailures")
+            Text("Recovery Success Rate (Simulated): 85%", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
 fun AgentDashboard(planner: Planner, db: AgentDatabase) {
     var command by remember { mutableStateOf("") }
     var currentPlan by remember { mutableStateOf<Plan?>(null) }
     var logs by remember { mutableStateOf(listOf<String>()) }
+    var showAnalytics by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("Agent OS Dashboard", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("Agent OS Dashboard", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            IconButton(onClick = { showAnalytics = !showAnalytics }) {
+                Icon(androidx.compose.material.icons.Icons.Default.Info, contentDescription = "Analytics")
+            }
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
@@ -66,16 +92,16 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase) {
             onClick = {
                 scope.launch {
                     logs = logs + "Planning: $command"
-                    val service = AgentAccessibilityService.instance
-                    val screenContext = service?.getCurrentScreenHierarchy() ?: emptyList()
+                    val bridge = AgentBridge.instance
+                    val screenContext = bridge.getCurrentScreenHierarchy()
                     val plan = planner.generatePlan(command, screenContext)
                     currentPlan = plan
                     logs = logs + "Plan generated: ${plan.steps.size} steps"
 
-                    if (service != null) {
+                    if (screenContext.isNotEmpty() || command.isNotEmpty()) {
                         val executor = Executor(
-                            accessibilityProvider = service,
-                            verificationProvider = service,
+                            accessibilityProvider = bridge,
+                            verificationProvider = bridge,
                             memoryProvider = AgentMemoryProvider(db),
                             onActionStarted = { action ->
                                 logs = logs + "Starting: ${action.type}"
@@ -113,6 +139,10 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase) {
                     }
                 }
             }
+        }
+
+        if (showAnalytics) {
+            FailureAnalyticsView(db)
         }
 
         Spacer(modifier = Modifier.height(16.dp))

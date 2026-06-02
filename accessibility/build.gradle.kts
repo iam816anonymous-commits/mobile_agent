@@ -19,5 +19,6 @@ android {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":ai"))
     implementation(libs.androidx.core.ktx)
 }

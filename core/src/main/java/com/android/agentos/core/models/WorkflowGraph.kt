@@ -14,7 +14,9 @@ data class WorkflowGraph(
 data class WorkflowNode(
     val id: String,
     val action: AgentAction,
-    val transitions: List<WorkflowTransition>
+    val transitions: List<WorkflowTransition>,
+    val timeoutMillis: Long = 5000L,
+    val maxRetries: Int = 3
 )
 
 @Serializable

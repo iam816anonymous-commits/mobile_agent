@@ -18,10 +18,22 @@ class Executor(
         private const val ACTION_DELAY = 1000L
     }
 
+    var stressTestMode: Boolean = false
+
     suspend fun execute(plan: Plan) {
         plan.status = PlanStatus.EXECUTING
 
         for (step in plan.steps) {
+            if (stressTestMode) {
+                val delayTime = (500..3000).random().toLong()
+                Log.i(TAG, "STRESS TEST: Introducing artificial delay of ${delayTime}ms")
+                delay(delayTime)
+
+                if ((1..10).random() > 8) {
+                    Log.w(TAG, "STRESS TEST: Simulating unexpected interruption")
+                    delay(1000)
+                }
+            }
             var success = false
             var retries = 0
 

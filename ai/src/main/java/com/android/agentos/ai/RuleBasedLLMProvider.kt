@@ -41,6 +41,27 @@ class RuleBasedLLMProvider : LLMProvider {
                     steps.add(AgentAction(ActionType.VERIFY_ELEMENT, target = "Wi-Fi"))
                 }
             }
+            normalizedInput.contains("notes") || normalizedInput.contains("note") -> {
+                if (normalizedInput.contains("chrome") && normalizedInput.contains("search")) {
+                    // Multi-step: Search Chrome then Note
+                    val query = userInput.substring(userInput.lowercase().indexOf("search") + "search".length).split("then").first().trim()
+                    steps.add(AgentAction(ActionType.OPEN_APP, target = "com.android.chrome"))
+                    steps.add(AgentAction(ActionType.CLICK, target = "Search or type web address"))
+                    steps.add(AgentAction(ActionType.TYPE_TEXT, text = query))
+                    steps.add(AgentAction(ActionType.CLICK, target = "Enter"))
+                    steps.add(AgentAction(ActionType.VERIFY_ELEMENT, target = query))
+                    steps.add(AgentAction(ActionType.OPEN_APP, target = "com.google.android.keep")) // Using Keep as default Notes
+                    steps.add(AgentAction(ActionType.CLICK, target = "New text note"))
+                    steps.add(AgentAction(ActionType.TYPE_TEXT, text = "Research for $query: Success"))
+                } else {
+                    steps.add(AgentAction(ActionType.OPEN_APP, target = "com.google.android.keep"))
+                    if (normalizedInput.contains("create") || normalizedInput.contains("write")) {
+                        val note = userInput.substring(userInput.lowercase().indexOf("note") + "note".length).trim()
+                        steps.add(AgentAction(ActionType.CLICK, target = "New text note"))
+                        steps.add(AgentAction(ActionType.TYPE_TEXT, text = note))
+                    }
+                }
+            }
             else -> {
                 steps.add(AgentAction(ActionType.WAIT))
             }
