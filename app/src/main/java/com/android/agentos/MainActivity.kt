@@ -30,7 +30,9 @@ import com.android.agentos.core.config.AgentConfig
 import com.android.agentos.memory.AgentDatabase
 import com.android.agentos.memory.AgentMemoryProvider
 import androidx.room.Room
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private lateinit var planner: Planner
@@ -164,6 +166,7 @@ fun OutcomeHistoryView(db: AgentDatabase) {
 @Composable
 fun SettingsScreen(config: AgentConfig, onBack: () -> Unit) {
     var apiKey by remember { mutableStateOf(config.apiKey ?: "") }
+    var apiBaseUrl by remember { mutableStateOf(config.apiBaseUrl ?: "https://api.openai.com/v1") }
     var modelPath by remember { mutableStateOf(config.modelPath ?: "") }
     var useLocal by remember { mutableStateOf(config.useLocalModel) }
 
@@ -174,7 +177,16 @@ fun SettingsScreen(config: AgentConfig, onBack: () -> Unit) {
         OutlinedTextField(
             value = apiKey,
             onValueChange = { apiKey = it; config.apiKey = it },
-            label = { Text("OpenAI API Key (Cloud Fallback)") },
+            label = { Text("Cloud API Key (BYOK)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = apiBaseUrl,
+            onValueChange = { apiBaseUrl = it; config.apiBaseUrl = it },
+            label = { Text("API Base URL (e.g. https://api.openai.com/v1)") },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -240,29 +252,35 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase, config: AgentConfig, onO
                 scope.launch {
                     logs = logs + "Planning: $command"
                     val bridge = AgentBridge.instance
-                    val screenContext = bridge.getCurrentScreenHierarchy()
-                    val plan = planner.generatePlan(command, screenContext)
+
+                    val plan = withContext(Dispatchers.IO) {
+                        val screenContext = bridge.getCurrentScreenHierarchy()
+                        planner.generatePlan(command, screenContext)
+                    }
+
                     currentPlan = plan
                     logs = logs + "Plan generated: ${plan.steps.size} steps"
 
-                    if (screenContext.isNotEmpty() || command.isNotEmpty()) {
-                        val executor = Executor(
-                            accessibilityProvider = bridge,
-                            verificationProvider = bridge,
-                            memoryProvider = AgentMemoryProvider(db),
-                            onActionStarted = { action ->
-                                logs = logs + "Starting: ${action.type}"
-                            },
-                            onActionFinished = { result ->
-                                logs = logs + "Finished: ${result.message}"
-                            },
-                            onFailure = { failure ->
-                                logs = logs + "Error: ${failure.errorMessage}"
-                            }
-                        )
-                        executor.execute(plan)
+                    if (command.isNotEmpty()) {
+                        withContext(Dispatchers.IO) {
+                            val executor = Executor(
+                                accessibilityProvider = bridge,
+                                verificationProvider = bridge,
+                                memoryProvider = AgentMemoryProvider(db),
+                                onActionStarted = { action ->
+                                    scope.launch { logs = logs + "Starting: ${action.type}" }
+                                },
+                                onActionFinished = { result ->
+                                    scope.launch { logs = logs + "Finished: ${result.message}" }
+                                },
+                                onFailure = { failure ->
+                                    scope.launch { logs = logs + "Error: ${failure.errorMessage}" }
+                                }
+                            )
+                            executor.execute(plan)
+                        }
                     } else {
-                        logs = logs + "Error: Accessibility Service not running"
+                        logs = logs + "Error: Command empty"
                     }
                 }
             },

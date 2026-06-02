@@ -10,6 +10,10 @@ class AgentConfig(context: Context) {
         get() = prefs.getString("api_key", null)
         set(value) = prefs.edit().putString("api_key", value).apply()
 
+    var apiBaseUrl: String?
+        get() = prefs.getString("api_base_url", "https://api.openai.com/v1")
+        set(value) = prefs.edit().putString("api_base_url", value).apply()
+
     var modelPath: String?
         get() = prefs.getString("model_path", null)
         set(value) = prefs.edit().putString("model_path", value).apply()

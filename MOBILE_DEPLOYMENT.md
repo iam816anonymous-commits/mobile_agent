@@ -29,13 +29,14 @@ To use the local brain offline:
 6. Enter the full path in **Local Model Path**: `/sdcard/Download/model.bin`.
 7. Tap **Save & Back**.
 
-## 3. Using Cloud Fallback
-If you prefer to use the cloud while setting up:
+## 3. Using Cloud Fallback (BYOK)
+The system supports "Bring Your Own Key" (BYOK), allowing you to use any OpenAI-compatible API (e.g., Local LLM server, Groq, OpenRouter, or OpenAI).
 
 1. Go to **Settings**.
-2. Enter your **OpenAI API Key**.
-3. Toggle **Use Local Model** to OFF.
-4. Tap **Save & Back**.
+2. Enter your **Cloud API Key**.
+3. Enter the **API Base URL** (defaults to `https://api.openai.com/v1`).
+4. Toggle **Use Local Model** to OFF.
+5. Tap **Save & Back**.
 
 ## 4. Enabling the Agent
 1. Android will prompt you to enable the **Accessibility Service**.

@@ -12,7 +12,7 @@ class LLMProviderFactory {
                     MediapipeLLMProvider(context, config.modelPath!!)
                 }
                 config.apiKey != null && config.apiKey!!.isNotEmpty() -> {
-                    OpenAILLMProvider(config.apiKey!!)
+                    GenericCloudLLMProvider(config.apiKey!!, config.apiBaseUrl ?: "https://api.openai.com/v1")
                 }
                 else -> {
                     // Rule-based fallback for Phase 3.6 demo
