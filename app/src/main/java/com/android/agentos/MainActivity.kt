@@ -14,35 +14,49 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.android.agentos.ai.Planner
 import com.android.agentos.ai.RuleBasedLLMProvider
+import com.android.agentos.ai.LLMProviderFactory
 import com.android.agentos.core.models.Plan
 import com.android.agentos.core.models.PlanStatus
 import com.android.agentos.core.models.ExecutionResult
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.Icons
 import com.android.agentos.memory.ActionHistoryEntity
 import com.android.agentos.memory.OutcomeEntity
 import com.android.agentos.core.engine.Executor
 import com.android.agentos.core.engine.AgentBridge
+import com.android.agentos.core.config.AgentConfig
 import com.android.agentos.memory.AgentDatabase
 import com.android.agentos.memory.AgentMemoryProvider
 import androidx.room.Room
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    private val planner = Planner(RuleBasedLLMProvider())
+    private lateinit var planner: Planner
     private lateinit var db: AgentDatabase
+    private lateinit var config: AgentConfig
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         db = Room.databaseBuilder(applicationContext, AgentDatabase::class.java, "agent-db").build()
+        config = AgentConfig(this)
+        val provider = LLMProviderFactory.create(this, config)
+        planner = Planner(provider)
+
         setContent {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AgentDashboard(planner, db)
+                    var currentScreen by remember { mutableStateOf("dashboard") }
+
+                    if (currentScreen == "dashboard") {
+                        AgentDashboard(planner, db, config, onOpenSettings = { currentScreen = "settings" })
+                    } else {
+                        SettingsScreen(config, onBack = { currentScreen = "dashboard" })
+                    }
                 }
             }
         }
@@ -148,7 +162,44 @@ fun OutcomeHistoryView(db: AgentDatabase) {
 }
 
 @Composable
-fun AgentDashboard(planner: Planner, db: AgentDatabase) {
+fun SettingsScreen(config: AgentConfig, onBack: () -> Unit) {
+    var apiKey by remember { mutableStateOf(config.apiKey ?: "") }
+    var modelPath by remember { mutableStateOf(config.modelPath ?: "") }
+    var useLocal by remember { mutableStateOf(config.useLocalModel) }
+
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text("Agent Configuration", style = MaterialTheme.typography.headlineSmall)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = apiKey,
+            onValueChange = { apiKey = it; config.apiKey = it },
+            label = { Text("OpenAI API Key (Cloud Fallback)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = modelPath,
+            onValueChange = { modelPath = it; config.modelPath = it },
+            label = { Text("Local Model Path (/sdcard/...)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("Use Local Model")
+            Switch(checked = useLocal, onCheckedChange = { useLocal = it; config.useLocalModel = it })
+        }
+
+        Button(onClick = onBack, modifier = Modifier.padding(top = 16.dp)) {
+            Text("Save & Back")
+        }
+    }
+}
+
+@Composable
+fun AgentDashboard(planner: Planner, db: AgentDatabase, config: AgentConfig, onOpenSettings: () -> Unit) {
     var command by remember { mutableStateOf("") }
     var currentPlan by remember { mutableStateOf<Plan?>(null) }
     var logs by remember { mutableStateOf(listOf<String>()) }
@@ -165,7 +216,16 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase) {
             IconButton(onClick = { showHistory = !showHistory }) {
                 Icon(Icons.Default.List, contentDescription = "History")
             }
+            IconButton(onClick = onOpenSettings) {
+                Icon(Icons.Default.Settings, contentDescription = "Settings")
+            }
         }
+        if (config.apiKey.isNullOrEmpty() && (!config.useLocalModel || config.modelPath.isNullOrEmpty())) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), modifier = Modifier.fillMaxWidth()) {
+                Text("Warning: No LLM Provider configured. Please go to Settings.", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp))
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
