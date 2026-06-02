@@ -40,3 +40,13 @@ data class FailureHistoryEntity(
     val errorMessage: String,
     val timestamp: Long
 )
+
+@Entity(tableName = "outcomes")
+data class OutcomeEntity(
+    @PrimaryKey val planId: String,
+    val goal: String,
+    val expectedOutcome: String?,
+    val observedOutcome: String?,
+    val success: Boolean,
+    val timestamp: Long = System.currentTimeMillis()
+)

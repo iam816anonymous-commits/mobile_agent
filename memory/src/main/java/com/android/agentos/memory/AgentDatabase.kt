@@ -27,9 +27,15 @@ interface AgentDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFailure(failure: FailureHistoryEntity)
+
+    @Query("SELECT * FROM outcomes ORDER BY timestamp DESC")
+    suspend fun getAllOutcomes(): List<OutcomeEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOutcome(outcome: OutcomeEntity)
 }
 
-@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class], version = 1)
+@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class], version = 1)
 abstract class AgentDatabase : RoomDatabase() {
     abstract fun agentDao(): AgentDao
 }

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.Icons
 import com.android.agentos.memory.ActionHistoryEntity
+import com.android.agentos.memory.OutcomeEntity
 import com.android.agentos.core.engine.Executor
 import com.android.agentos.core.engine.AgentBridge
 import com.android.agentos.memory.AgentDatabase
@@ -105,6 +106,28 @@ fun ExecutionHistoryView(db: AgentDatabase) {
             LazyColumn {
                 items(history) { item ->
                     Text("${item.type}: ${item.target} (${if(item.success) "OK" else "FAIL"})", style = MaterialTheme.typography.bodySmall)
+                    Divider()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OutcomeHistoryView(db: AgentDatabase) {
+    var outcomes by remember { mutableStateOf(listOf<OutcomeEntity>()) }
+
+    LaunchedEffect(Unit) {
+        outcomes = db.agentDao().getAllOutcomes()
+    }
+
+    Card(modifier = Modifier.padding(top = 8.dp).fillMaxWidth().height(150.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Outcome Verification History", fontWeight = FontWeight.Bold)
+            LazyColumn {
+                items(outcomes) { item ->
+                    Text("${item.goal}: ${if(item.success) "VERIFIED" else "FAILED"}", color = if(item.success) Color(0xFF388E3C) else Color.Red, style = MaterialTheme.typography.bodySmall)
+                    Text("Observed: ${item.observedOutcome}", style = MaterialTheme.typography.labelSmall)
                     Divider()
                 }
             }
@@ -200,6 +223,7 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase) {
 
         if (showHistory) {
             ExecutionHistoryView(db)
+            OutcomeHistoryView(db)
         }
 
         Spacer(modifier = Modifier.height(16.dp))

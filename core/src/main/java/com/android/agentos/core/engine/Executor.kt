@@ -10,6 +10,7 @@ class Executor(
     private val verificationProvider: VerificationProvider,
     private val memoryProvider: MemoryProvider,
     private val reflectionProvider: ReflectionProvider? = null,
+    private val outcomeProvider: OutcomeProvider? = null,
     private val worldModelProvider: WorldModelProvider? = null,
     private val failureClassifier: FailureClassifier = FailureClassifier(),
     private val onActionStarted: (AgentAction) -> Unit,
@@ -135,7 +136,17 @@ class Executor(
             }
         }
         if (plan.currentStepIndex >= plan.steps.size) {
-            plan.status = PlanStatus.COMPLETED
+            // Final Outcome Verification
+            val finalScreen = accessibilityProvider.getCurrentScreenHierarchy()
+            val outcomeVerified = outcomeProvider?.verifyGoalAchievement(plan.goal, finalScreen) ?: true
+
+            if (outcomeVerified) {
+                plan.status = PlanStatus.COMPLETED
+                Log.i(TAG, "Plan Goal achieved and verified: ${plan.goal}")
+            } else {
+                plan.status = PlanStatus.FAILED
+                Log.e(TAG, "Plan steps finished but goal verification failed: ${plan.goal}")
+            }
         }
     }
 }
@@ -153,10 +164,15 @@ interface VerificationProvider {
 interface MemoryProvider {
     suspend fun logAction(planId: String, action: AgentAction, result: ExecutionResult)
     suspend fun logFailure(failure: FailureLog)
+    suspend fun logOutcome(planId: String, goal: String, success: Boolean, observedOutcome: String?)
 }
 
 interface ReflectionProvider {
     suspend fun reflectAndReplan(goal: String, failure: FailureLog, screenContext: List<ScreenElement>): Plan
+}
+
+interface OutcomeProvider {
+    suspend fun verifyGoalAchievement(goal: String, screenContext: List<ScreenElement>): Boolean
 }
 
 interface WorldModelProvider {

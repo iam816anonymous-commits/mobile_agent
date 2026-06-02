@@ -27,7 +27,9 @@ enum class ActionType {
     GO_BACK,
     SCREENSHOT,
     WAIT,
-    VERIFY_ELEMENT
+    VERIFY_ELEMENT,
+    MONITOR_FOR_ELEMENT,
+    SCROLL_TO_ELEMENT
 }
 
 /**

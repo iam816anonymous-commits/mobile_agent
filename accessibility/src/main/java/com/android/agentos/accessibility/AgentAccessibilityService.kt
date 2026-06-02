@@ -111,8 +111,30 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
             ActionType.SCROLL_DOWN -> scroll(true)
             ActionType.SCROLL_UP -> scroll(false)
             ActionType.VERIFY_ELEMENT -> verifyElementVisible(action.target)
+            ActionType.MONITOR_FOR_ELEMENT -> monitorForElement(action.target)
+            ActionType.SCROLL_TO_ELEMENT -> scrollToElement(action.target)
             else -> false
         }
+    }
+
+    private fun monitorForElement(target: String?): Boolean {
+        // Long-horizon: retry verification for up to 30 seconds
+        val startTime = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startTime < 30000) {
+            if (verifyElementVisible(target)) return true
+            Thread.sleep(2000)
+        }
+        return false
+    }
+
+    private fun scrollToElement(target: String?): Boolean {
+        if (target == null) return false
+        for (i in 1..5) {
+            if (verifyElementVisible(target)) return true
+            scroll(true)
+            Thread.sleep(1000)
+        }
+        return false
     }
 
     private fun clickAt(x: Float, y: Float): Boolean {

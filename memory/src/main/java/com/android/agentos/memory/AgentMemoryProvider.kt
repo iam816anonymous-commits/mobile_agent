@@ -33,4 +33,16 @@ class AgentMemoryProvider(private val db: AgentDatabase) : MemoryProvider {
             )
         )
     }
+
+    override suspend fun logOutcome(planId: String, goal: String, success: Boolean, observedOutcome: String?) {
+        db.agentDao().insertOutcome(
+            OutcomeEntity(
+                planId = planId,
+                goal = goal,
+                expectedOutcome = "Verified by Agent",
+                observedOutcome = observedOutcome,
+                success = success
+            )
+        )
+    }
 }

@@ -1,13 +1,19 @@
 package com.android.agentos.ai.classification
 
-import com.android.agentos.core.models.ScreenElement
-import com.android.agentos.core.models.ScreenState
-import com.android.agentos.core.models.ScreenType
+import com.android.agentos.core.models.*
 
 class ScreenClassifier {
 
+    private val semanticClassifier = SemanticUIClassifier()
+
     fun classify(packageName: String?, elements: List<ScreenElement>): ScreenState {
+        val semanticElements = semanticClassifier.classifyElements(elements)
         val candidates = mutableListOf<ClassificationCandidate>()
+
+        // Semantic based (App independent)
+        if (semanticElements.any { it.role == SemanticRole.SEARCH_BAR }) {
+            candidates.add(ClassificationCandidate(ScreenType.UNKNOWN, 0.6f)) // Generalized Search state
+        }
 
         // Chrome
         if (packageName == "com.android.chrome") {

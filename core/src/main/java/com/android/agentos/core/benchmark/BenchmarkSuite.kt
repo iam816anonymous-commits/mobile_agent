@@ -20,6 +20,7 @@ class BenchmarkSuite(
         results.add(BenchmarkResult(
             command = command,
             success = plan.status == PlanStatus.COMPLETED,
+            outcomeVerified = plan.status == PlanStatus.COMPLETED,
             stepsCount = plan.steps.size,
             durationMs = duration
         ))
@@ -41,12 +42,21 @@ class BenchmarkSuite(
     data class BenchmarkResult(
         val command: String,
         val success: Boolean,
+        val outcomeVerified: Boolean,
         val stepsCount: Int,
         val durationMs: Long,
         val app: String? = null,
         val predictionAccuracy: Float = 0f,
-        val retrievalEffective: Boolean = false
+        val retrievalEffective: Boolean = false,
+        val category: BenchmarkCategory = BenchmarkCategory.SINGLE_APP
     )
+
+    enum class BenchmarkCategory {
+        SINGLE_APP,
+        CROSS_APP,
+        KNOWLEDGE,
+        LONG_HORIZON
+    }
 
     fun getPerAppStats(): Map<String, Int> {
         return results.filter { it.app != null }.groupBy { it.app!! }.mapValues { entry ->
