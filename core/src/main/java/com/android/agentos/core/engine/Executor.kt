@@ -10,6 +10,7 @@ class Executor(
     private val verificationProvider: VerificationProvider,
     private val memoryProvider: MemoryProvider,
     private val reflectionProvider: ReflectionProvider? = null,
+    private val worldModelProvider: WorldModelProvider? = null,
     private val failureClassifier: FailureClassifier = FailureClassifier(),
     private val onActionStarted: (AgentAction) -> Unit,
     private val onActionFinished: (ExecutionResult) -> Unit,
@@ -60,8 +61,11 @@ class Executor(
             var retries = 0
 
             while (!success && retries < MAX_RETRIES) {
+                val beforeState = accessibilityProvider.getCurrentScreenState().classification
+                val predictedNextState = worldModelProvider?.predictNextState(beforeState, step.type)
+
                 onActionStarted(step)
-                Log.d(TAG, "Executing action: ${step.type} (Attempt ${retries + 1})")
+                Log.d(TAG, "Executing action: ${step.type} (Attempt ${retries + 1}). Predicted: $predictedNextState")
 
                 // 1. Execute
                 val performed = accessibilityProvider.performAction(step)
@@ -70,7 +74,18 @@ class Executor(
                     delay(ACTION_DELAY) // Wait for UI transition
 
                     // 2. Observe & Verify
-                    val screenContext = accessibilityProvider.getCurrentScreenHierarchy()
+                    val afterState = accessibilityProvider.getCurrentScreenState()
+                    val screenContext = afterState.elements
+
+                    if (predictedNextState != null && predictedNextState != ScreenType.UNKNOWN) {
+                        if (afterState.classification != predictedNextState) {
+                            Log.w(TAG, "Transition Anomaly: Expected $predictedNextState, got ${afterState.classification}")
+                        } else {
+                            Log.i(TAG, "Transition Prediction Success: ${afterState.classification}")
+                        }
+                        worldModelProvider?.learnTransition(beforeState, step.type, afterState.classification)
+                    }
+
                     val verification = verificationProvider.verifyAction(step, screenContext)
                     success = verification.success
 
@@ -142,4 +157,9 @@ interface MemoryProvider {
 
 interface ReflectionProvider {
     suspend fun reflectAndReplan(goal: String, failure: FailureLog, screenContext: List<ScreenElement>): Plan
+}
+
+interface WorldModelProvider {
+    fun predictNextState(currentState: ScreenType, action: ActionType): ScreenType
+    fun learnTransition(from: ScreenType, action: ActionType, to: ScreenType)
 }

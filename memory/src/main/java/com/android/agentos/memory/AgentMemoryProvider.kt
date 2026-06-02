@@ -11,11 +11,13 @@ class AgentMemoryProvider(private val db: AgentDatabase) : MemoryProvider {
             ActionHistoryEntity(
                 id = action.id,
                 planId = planId,
+                subgoalId = null, // In a real setup, we'd pass this from the executor
                 type = action.type.name,
                 target = action.target,
                 text = action.text,
                 success = result.success,
-                timestamp = result.timestamp
+                timestamp = result.timestamp,
+                depth = 0 // Placeholder for depth analysis
             )
         )
     }

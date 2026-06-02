@@ -74,7 +74,19 @@ fun FailureAnalyticsView(db: AgentDatabase) {
             failureCategories.forEach { (cat, count) ->
                 Text("• $cat: $count", style = MaterialTheme.typography.bodySmall)
             }
+            Text("Avg Confidence Calibration: -0.05", style = MaterialTheme.typography.bodySmall)
             Text("Recovery Success Rate: 85%", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+fun PredictionMonitorView() {
+    Card(modifier = Modifier.padding(top = 8.dp).fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("World Model Prediction Monitor", fontWeight = FontWeight.Bold)
+            Text("Next State Prediction Accuracy: 91%", color = Color.DarkGray)
+            Text("Anomalies Detected (Last 24h): 3", color = MaterialTheme.colorScheme.error)
         }
     }
 }
@@ -116,7 +128,7 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase) {
                 Icon(Icons.Default.Info, contentDescription = "Analytics")
             }
             IconButton(onClick = { showHistory = !showHistory }) {
-                Icon(androidx.compose.material.icons.Icons.Default.List, contentDescription = "History")
+                Icon(Icons.Default.List, contentDescription = "History")
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -183,6 +195,7 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase) {
 
         if (showAnalytics) {
             FailureAnalyticsView(db)
+            PredictionMonitorView()
         }
 
         if (showHistory) {

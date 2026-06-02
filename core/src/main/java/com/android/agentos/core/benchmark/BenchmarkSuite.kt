@@ -43,7 +43,9 @@ class BenchmarkSuite(
         val success: Boolean,
         val stepsCount: Int,
         val durationMs: Long,
-        val app: String? = null
+        val app: String? = null,
+        val predictionAccuracy: Float = 0f,
+        val retrievalEffective: Boolean = false
     )
 
     fun getPerAppStats(): Map<String, Int> {

@@ -22,11 +22,13 @@ data class WorkflowEntity(
 data class ActionHistoryEntity(
     @PrimaryKey val id: String,
     val planId: String,
+    val subgoalId: String?,
     val type: String,
     val target: String?,
     val text: String?,
     val success: Boolean,
-    val timestamp: Long
+    val timestamp: Long,
+    val depth: Int = 0
 )
 
 @Entity(tableName = "failure_history")
