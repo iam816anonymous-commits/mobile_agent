@@ -24,6 +24,7 @@ class AgentMemoryProvider(private val db: AgentDatabase) : MemoryProvider {
         db.agentDao().insertFailure(
             FailureHistoryEntity(
                 actionId = failure.actionId,
+                category = failure.category.name,
                 errorType = failure.errorType,
                 errorMessage = failure.errorMessage,
                 timestamp = failure.timestamp

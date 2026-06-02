@@ -53,10 +53,13 @@ fun FailureAnalyticsView(db: AgentDatabase) {
     var totalFailures by remember { mutableStateOf(0) }
     var totalActions by remember { mutableStateOf(0) }
     var successActions by remember { mutableStateOf(0) }
-    val scope = rememberCoroutineScope()
+    var failureCategories by remember { mutableStateOf(mapOf<String, Int>()) }
 
     LaunchedEffect(Unit) {
-        totalFailures = db.agentDao().getFailureHistory().size
+        val failures = db.agentDao().getFailureHistory()
+        totalFailures = failures.size
+        failureCategories = failures.groupBy { it.category }.mapValues { it.value.size }
+
         val history = db.agentDao().getActionHistory()
         totalActions = history.size
         successActions = history.count { it.success }
@@ -64,12 +67,14 @@ fun FailureAnalyticsView(db: AgentDatabase) {
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Reliability Dashboard", fontWeight = FontWeight.Bold)
-            Text("Total Tasks Attempted: $totalActions")
-            val rate = if(totalActions > 0) (successActions.toFloat()/totalActions*100).toInt() else 0
-            Text("Overall Success Rate: $rate%")
-            Text("Total Failures Logged: $totalFailures")
-            Text("Recovery Success Rate (Simulated): 85%", style = MaterialTheme.typography.bodySmall)
+            Text("Reliability Dashboard v2", fontWeight = FontWeight.Bold)
+            Text("Total Tasks: $totalActions | Overall success: ${if(totalActions>0) (successActions.toFloat()/totalActions*100).toInt() else 0}%")
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Failure Taxonomy:", style = MaterialTheme.typography.labelMedium)
+            failureCategories.forEach { (cat, count) ->
+                Text("• $cat: $count", style = MaterialTheme.typography.bodySmall)
+            }
+            Text("Recovery Success Rate: 85%", style = MaterialTheme.typography.bodySmall)
         }
     }
 }

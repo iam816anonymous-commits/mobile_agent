@@ -42,6 +42,13 @@ class BenchmarkSuite(
         val command: String,
         val success: Boolean,
         val stepsCount: Int,
-        val durationMs: Long
+        val durationMs: Long,
+        val app: String? = null
     )
+
+    fun getPerAppStats(): Map<String, Int> {
+        return results.filter { it.app != null }.groupBy { it.app!! }.mapValues { entry ->
+            (entry.value.count { it.success }.toFloat() / entry.value.size * 100).toInt()
+        }
+    }
 }

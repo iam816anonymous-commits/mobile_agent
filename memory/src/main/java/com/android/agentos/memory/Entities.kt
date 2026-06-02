@@ -33,6 +33,7 @@ data class ActionHistoryEntity(
 data class FailureHistoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val actionId: String,
+    val category: String,
     val errorType: String,
     val errorMessage: String,
     val timestamp: Long

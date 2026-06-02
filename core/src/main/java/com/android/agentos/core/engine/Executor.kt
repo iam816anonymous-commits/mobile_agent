@@ -2,6 +2,7 @@ package com.android.agentos.core.engine
 
 import android.util.Log
 import com.android.agentos.core.models.*
+import com.android.agentos.core.failure.FailureClassifier
 import kotlinx.coroutines.delay
 
 class Executor(
@@ -9,6 +10,7 @@ class Executor(
     private val verificationProvider: VerificationProvider,
     private val memoryProvider: MemoryProvider,
     private val reflectionProvider: ReflectionProvider? = null,
+    private val failureClassifier: FailureClassifier = FailureClassifier(),
     private val onActionStarted: (AgentAction) -> Unit,
     private val onActionFinished: (ExecutionResult) -> Unit,
     private val onFailure: (FailureLog) -> Unit
@@ -87,7 +89,8 @@ class Executor(
                 }
 
                 if (!success) {
-                    val failure = FailureLog(step.id, "EXECUTION_FAILURE", "Failed at attempt ${retries + 1}")
+                    val category = failureClassifier.classifyFailure("EXECUTION_FAILURE", "Failed at attempt ${retries + 1}", accessibilityProvider.getCurrentScreenHierarchy())
+                    val failure = FailureLog(step.id, category, "EXECUTION_FAILURE", "Failed at attempt ${retries + 1}")
                     memoryProvider.logFailure(failure)
 
                     retries++
@@ -95,8 +98,11 @@ class Executor(
                         Log.i(TAG, "Retrying action: ${step.type}")
                         delay(2000L) // Wait longer before retry
                     } else {
+                        val screen = accessibilityProvider.getCurrentScreenHierarchy()
+                        val category = failureClassifier.classifyFailure("MAX_RETRIES", "Failed after $MAX_RETRIES attempts", screen)
+                        val failureWithCategory = FailureLog(step.id, category, "MAX_RETRIES", "Failed after $MAX_RETRIES attempts")
                         // Try Reflection/Re-planning before giving up
-                        val repairPlan = reflectionProvider?.reflectAndReplan(plan.goal, failure, accessibilityProvider.getCurrentScreenHierarchy())
+                        val repairPlan = reflectionProvider?.reflectAndReplan(plan.goal, failureWithCategory, accessibilityProvider.getCurrentScreenHierarchy())
                         if (repairPlan != null && repairPlan.steps.isNotEmpty()) {
                             Log.i(TAG, "Attempting repair plan...")
                             execute(repairPlan) // Recursive call for repair

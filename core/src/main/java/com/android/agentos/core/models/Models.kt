@@ -37,9 +37,17 @@ enum class ActionType {
 data class Plan(
     val id: String = java.util.UUID.randomUUID().toString(),
     val goal: String,
+    val subgoals: List<Subgoal> = emptyList(),
     val steps: List<AgentAction>,
     var status: PlanStatus = PlanStatus.PENDING,
     var currentStepIndex: Int = 0
+)
+
+@Serializable
+data class Subgoal(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val description: String,
+    val targetApp: String? = null
 )
 
 enum class PlanStatus {
@@ -62,11 +70,21 @@ data class ExecutionResult(
 @Serializable
 data class FailureLog(
     val actionId: String,
+    val category: FailureCategory,
     val errorType: String,
     val errorMessage: String,
     val screenshotPath: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+enum class FailureCategory {
+    UI_NOT_FOUND,
+    APP_CRASH,
+    TIMEOUT,
+    LLM_ERROR,
+    NETWORK_ERROR,
+    UNKNOWN
+}
 
 /**
  * Represents a UI element on the screen.
