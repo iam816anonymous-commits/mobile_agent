@@ -2,8 +2,9 @@ package com.android.agentos.ai.world
 
 import com.android.agentos.core.models.ActionType
 import com.android.agentos.core.models.ScreenType
+import com.android.agentos.core.engine.WorldModelProvider
 
-class WorldModel {
+class WorldModel : WorldModelProvider {
     private val transitions = mutableMapOf<Pair<ScreenType, ActionType>, ScreenType>()
 
     init {
@@ -14,11 +15,11 @@ class WorldModel {
         transitions[Pair(ScreenType.SETTINGS_MAIN, ActionType.CLICK)] = ScreenType.SETTINGS_WIFI
     }
 
-    fun predictNextState(currentState: ScreenType, action: ActionType): ScreenType {
+    override fun predictNextState(currentState: ScreenType, action: ActionType): ScreenType {
         return transitions[Pair(currentState, action)] ?: ScreenType.UNKNOWN
     }
 
-    fun learnTransition(from: ScreenType, action: ActionType, to: ScreenType) {
+    override fun learnTransition(from: ScreenType, action: ActionType, to: ScreenType) {
         if (from != ScreenType.UNKNOWN && to != ScreenType.UNKNOWN) {
             transitions[Pair(from, action)] = to
         }

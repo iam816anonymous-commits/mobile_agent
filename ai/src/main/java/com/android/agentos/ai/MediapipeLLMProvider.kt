@@ -43,6 +43,17 @@ class MediapipeLLMProvider(private val context: Context, private val modelPath: 
         }
     }
 
+    override suspend fun decomposeGoal(goal: String): List<Subgoal> {
+        val prompt = "Decompose the goal '$goal' into exactly 3 high-level subgoals. Return ONLY a JSON array of strings: [\"subgoal1\", \"subgoal2\", \"subgoal3\"]"
+        val response = llmInference.generateResponse(prompt)
+        return try {
+            val subgoals = json.decodeFromString<List<String>>(extractJson(response))
+            subgoals.map { Subgoal(description = it) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     var toolRegistry: ToolRegistry? = null
 
     private fun buildPrompt(userInput: String, screenContext: List<ScreenElement>): String {

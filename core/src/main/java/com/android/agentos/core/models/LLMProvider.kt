@@ -4,6 +4,7 @@ interface LLMProvider {
     val name: String
     suspend fun generatePlan(userInput: String, screenContext: List<ScreenElement>): Plan
     suspend fun verifyAction(action: AgentAction, screenContext: List<ScreenElement>): VerificationResult
+    suspend fun decomposeGoal(goal: String): List<Subgoal>
 }
 
 data class VerificationResult(

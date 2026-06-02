@@ -177,7 +177,7 @@ interface MemoryProvider {
 }
 
 interface ReflectionProvider {
-    suspend fun reflectAndReplan(goal: String, failure: FailureLog, screenContext: List<ScreenElement>): Plan
+    suspend fun reflectAndReplan(goal: String, failure: FailureLog, screenContext: List<ScreenElement>): Plan?
 }
 
 interface OutcomeProvider {

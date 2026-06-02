@@ -57,17 +57,27 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
     }
 
     private fun flattenHierarchy(node: AccessibilityNodeInfo, elements: MutableList<ScreenElement>) {
+        if (!node.isVisibleToUser) return
+
         val bounds = Rect()
         node.getBoundsInScreen(bounds)
 
-        elements.add(ScreenElement(
-            text = node.text?.toString(),
-            contentDescription = node.contentDescription?.toString(),
-            className = node.className?.toString() ?: "",
-            bounds = ModelRect(bounds.left, bounds.top, bounds.right, bounds.bottom),
-            isClickable = node.isClickable,
-            id = node.viewIdResourceName
-        ))
+        val text = node.text?.toString()
+        val contentDescription = node.contentDescription?.toString()
+
+        // Only add elements that have some identifying info or are clickable
+        if (!text.isNullOrEmpty() || !contentDescription.isNullOrEmpty() || node.isClickable) {
+            elements.add(ScreenElement(
+                text = text,
+                contentDescription = contentDescription,
+                className = node.className?.toString() ?: "",
+                bounds = ModelRect(bounds.left, bounds.top, bounds.right, bounds.bottom),
+                isClickable = node.isClickable,
+                id = node.viewIdResourceName
+            ))
+        }
+
+        if (elements.size > 100) return // Safety cap for deep trees
 
         for (i in 0 until node.childCount) {
             val child = node.getChild(i)
@@ -184,7 +194,14 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
 
     private fun typeText(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
-        val focus = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        var focus = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+
+        if (focus == null) {
+            // Try to find first editable node
+            focus = findFirstEditable(root)
+            focus?.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        }
+
         if (focus != null) {
             val arguments = Bundle()
             arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
@@ -193,6 +210,19 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
             return result
         }
         return false
+    }
+
+    private fun findFirstEditable(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        if (node.isEditable) return node
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i)
+            if (child != null) {
+                val found = findFirstEditable(child)
+                if (found != null) return found
+                child.recycle()
+            }
+        }
+        return null
     }
 
     override suspend fun verifyAction(action: AgentAction, screenContext: List<ScreenElement>): VerificationResult {
