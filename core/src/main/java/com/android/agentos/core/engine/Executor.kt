@@ -8,6 +8,7 @@ class Executor(
     private val accessibilityProvider: AccessibilityProvider,
     private val verificationProvider: VerificationProvider,
     private val memoryProvider: MemoryProvider,
+    private val reflectionProvider: ReflectionProvider? = null,
     private val onActionStarted: (AgentAction) -> Unit,
     private val onActionFinished: (ExecutionResult) -> Unit,
     private val onFailure: (FailureLog) -> Unit
@@ -21,9 +22,14 @@ class Executor(
     var stressTestMode: Boolean = false
 
     suspend fun execute(plan: Plan) {
+        if (plan.status == PlanStatus.COMPLETED || plan.status == PlanStatus.FAILED) return
+
         plan.status = PlanStatus.EXECUTING
 
-        for (step in plan.steps) {
+        while (plan.currentStepIndex < plan.steps.size) {
+            if (plan.status == PlanStatus.PAUSED) break
+
+            val step = plan.steps[plan.currentStepIndex]
             if (stressTestMode) {
                 val delayTime = (500..3000).random().toLong()
                 Log.i(TAG, "STRESS TEST: Introducing artificial delay of ${delayTime}ms")
@@ -57,6 +63,7 @@ class Executor(
 
                     if (success) {
                         onActionFinished(result)
+                        plan.currentStepIndex++
                     } else {
                         Log.w(TAG, "Action verification failed: ${step.type}")
                     }
@@ -74,6 +81,17 @@ class Executor(
                         Log.i(TAG, "Retrying action: ${step.type}")
                         delay(2000L) // Wait longer before retry
                     } else {
+                        // Try Reflection/Re-planning before giving up
+                        val repairPlan = reflectionProvider?.reflectAndReplan(plan.goal, failure, accessibilityProvider.getCurrentScreenHierarchy())
+                        if (repairPlan != null && repairPlan.steps.isNotEmpty()) {
+                            Log.i(TAG, "Attempting repair plan...")
+                            execute(repairPlan) // Recursive call for repair
+                            if (repairPlan.status == PlanStatus.COMPLETED) {
+                                success = true
+                                break
+                            }
+                        }
+
                         onFailure(failure)
                         plan.status = PlanStatus.FAILED
                         return
@@ -81,7 +99,9 @@ class Executor(
                 }
             }
         }
-        plan.status = PlanStatus.COMPLETED
+        if (plan.currentStepIndex >= plan.steps.size) {
+            plan.status = PlanStatus.COMPLETED
+        }
     }
 }
 
@@ -98,4 +118,8 @@ interface VerificationProvider {
 interface MemoryProvider {
     suspend fun logAction(planId: String, action: AgentAction, result: ExecutionResult)
     suspend fun logFailure(failure: FailureLog)
+}
+
+interface ReflectionProvider {
+    suspend fun reflectAndReplan(goal: String, failure: FailureLog, screenContext: List<ScreenElement>): Plan
 }

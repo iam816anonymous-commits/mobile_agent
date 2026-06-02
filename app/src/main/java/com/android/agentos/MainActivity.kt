@@ -18,7 +18,9 @@ import com.android.agentos.core.models.Plan
 import com.android.agentos.core.models.PlanStatus
 import com.android.agentos.core.models.ExecutionResult
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.Icons
+import com.android.agentos.memory.ActionHistoryEntity
 import com.android.agentos.core.engine.Executor
 import com.android.agentos.core.engine.AgentBridge
 import com.android.agentos.memory.AgentDatabase
@@ -65,18 +67,43 @@ fun FailureAnalyticsView(db: AgentDatabase) {
 }
 
 @Composable
+fun ExecutionHistoryView(db: AgentDatabase) {
+    var history by remember { mutableStateOf(listOf<ActionHistoryEntity>()) }
+
+    LaunchedEffect(Unit) {
+        history = db.agentDao().getActionHistory()
+    }
+
+    Card(modifier = Modifier.fillMaxWidth().height(200.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Execution History", fontWeight = FontWeight.Bold)
+            LazyColumn {
+                items(history) { item ->
+                    Text("${item.type}: ${item.target} (${if(item.success) "OK" else "FAIL"})", style = MaterialTheme.typography.bodySmall)
+                    Divider()
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun AgentDashboard(planner: Planner, db: AgentDatabase) {
     var command by remember { mutableStateOf("") }
     var currentPlan by remember { mutableStateOf<Plan?>(null) }
     var logs by remember { mutableStateOf(listOf<String>()) }
     var showAnalytics by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     Column(modifier = Modifier.padding(16.dp)) {
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Text("Agent OS Dashboard", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             IconButton(onClick = { showAnalytics = !showAnalytics }) {
-                Icon(androidx.compose.material.icons.Icons.Default.Info, contentDescription = "Analytics")
+                Icon(Icons.Default.Info, contentDescription = "Analytics")
+            }
+            IconButton(onClick = { showHistory = !showHistory }) {
+                Icon(androidx.compose.material.icons.Icons.Default.List, contentDescription = "History")
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -143,6 +170,10 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase) {
 
         if (showAnalytics) {
             FailureAnalyticsView(db)
+        }
+
+        if (showHistory) {
+            ExecutionHistoryView(db)
         }
 
         Spacer(modifier = Modifier.height(16.dp))

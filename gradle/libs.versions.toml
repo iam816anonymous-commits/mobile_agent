@@ -14,8 +14,10 @@ serialization = "1.6.2"
 openai = "0.1.0" # Mock or local LLM interface
 camera = "1.3.1"
 tesseract = "4.6.0"
+mediapipe = "0.10.11"
 
 [libraries]
+mediapipe-tasks-genai = { group = "com.google.mediapipe", name = "tasks-genai", version.ref = "mediapipe" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

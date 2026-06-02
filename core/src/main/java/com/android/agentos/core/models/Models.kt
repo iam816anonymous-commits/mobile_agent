@@ -38,12 +38,14 @@ data class Plan(
     val id: String = java.util.UUID.randomUUID().toString(),
     val goal: String,
     val steps: List<AgentAction>,
-    var status: PlanStatus = PlanStatus.PENDING
+    var status: PlanStatus = PlanStatus.PENDING,
+    var currentStepIndex: Int = 0
 )
 
 enum class PlanStatus {
     PENDING,
     EXECUTING,
+    PAUSED,
     COMPLETED,
     FAILED
 }
