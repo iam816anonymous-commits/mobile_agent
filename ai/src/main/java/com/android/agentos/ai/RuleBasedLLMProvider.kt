@@ -95,4 +95,12 @@ class RuleBasedLLMProvider : LLMProvider {
             else -> VerificationResult(true, 1.0f, "Assumed success")
         }
     }
+
+    override suspend fun decomposeGoal(goal: String): List<Subgoal> {
+        return listOf(
+            Subgoal(description = "Plan for $goal"),
+            Subgoal(description = "Execute $goal"),
+            Subgoal(description = "Finalize $goal")
+        )
+    }
 }

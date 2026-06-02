@@ -29,6 +29,10 @@ import com.android.agentos.core.engine.AgentBridge
 import com.android.agentos.core.config.AgentConfig
 import com.android.agentos.memory.AgentDatabase
 import com.android.agentos.memory.AgentMemoryProvider
+import com.android.agentos.core.memory.EpisodicMemory
+import com.android.agentos.ai.world.WorldModel
+import com.android.agentos.ai.reflection.ReflectionEngine
+import com.android.agentos.ai.outcome.OutcomeVerifier
 import androidx.room.Room
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,13 +42,23 @@ class MainActivity : ComponentActivity() {
     private lateinit var planner: Planner
     private lateinit var db: AgentDatabase
     private lateinit var config: AgentConfig
+    private lateinit var episodicMemory: EpisodicMemory
+    private lateinit var worldModel: WorldModel
+    private lateinit var reflectionEngine: ReflectionEngine
+    private lateinit var outcomeVerifier: OutcomeVerifier
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         db = Room.databaseBuilder(applicationContext, AgentDatabase::class.java, "agent-db").build()
         config = AgentConfig(this)
         val provider = LLMProviderFactory.create(this, config)
-        planner = Planner(provider)
+
+        episodicMemory = EpisodicMemory()
+        worldModel = WorldModel()
+        reflectionEngine = ReflectionEngine(provider)
+        outcomeVerifier = OutcomeVerifier(provider)
+
+        planner = Planner(provider, episodicMemory)
 
         setContent {
             MaterialTheme {
@@ -55,7 +69,15 @@ class MainActivity : ComponentActivity() {
                     var currentScreen by remember { mutableStateOf("dashboard") }
 
                     if (currentScreen == "dashboard") {
-                        AgentDashboard(planner, db, config, onOpenSettings = { currentScreen = "settings" })
+                        AgentDashboard(
+                            planner,
+                            db,
+                            config,
+                            reflectionEngine,
+                            outcomeVerifier,
+                            worldModel,
+                            onOpenSettings = { currentScreen = "settings" }
+                        )
                     } else {
                         SettingsScreen(config, onBack = { currentScreen = "dashboard" })
                     }
@@ -98,12 +120,17 @@ fun FailureAnalyticsView(db: AgentDatabase) {
 }
 
 @Composable
-fun PredictionMonitorView() {
+fun PredictionMonitorView(db: AgentDatabase) {
+    var anomalies by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        val failures = db.agentDao().getFailureHistory()
+        anomalies = failures.count { it.errorMessage.contains("Anomaly") }
+    }
     Card(modifier = Modifier.padding(top = 8.dp).fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("World Model Prediction Monitor", fontWeight = FontWeight.Bold)
             Text("Next State Prediction Accuracy: 91%", color = Color.DarkGray)
-            Text("Anomalies Detected (Last 24h): 3", color = MaterialTheme.colorScheme.error)
+            Text("Anomalies Detected (Total): $anomalies", color = if(anomalies > 0) MaterialTheme.colorScheme.error else Color.DarkGray)
         }
     }
 }
@@ -130,11 +157,16 @@ fun ExecutionHistoryView(db: AgentDatabase) {
 }
 
 @Composable
-fun LearningEvaluationView() {
+fun LearningEvaluationView(db: AgentDatabase) {
+    var successCount by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        val history = db.agentDao().getActionHistory()
+        successCount = history.count { it.success }
+    }
     Card(modifier = Modifier.padding(top = 8.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Learning Evaluation", fontWeight = FontWeight.Bold)
-            Text("First-run Success Rate: 72%", style = MaterialTheme.typography.bodySmall)
+            Text("Total Successful Actions: $successCount", style = MaterialTheme.typography.bodySmall)
             Text("Repeat-run Success Rate: 94%", style = MaterialTheme.typography.bodySmall, color = Color(0xFF2E7D32))
             Text("Planning Latency Reduction: 45%", style = MaterialTheme.typography.bodySmall)
         }
@@ -211,7 +243,15 @@ fun SettingsScreen(config: AgentConfig, onBack: () -> Unit) {
 }
 
 @Composable
-fun AgentDashboard(planner: Planner, db: AgentDatabase, config: AgentConfig, onOpenSettings: () -> Unit) {
+fun AgentDashboard(
+    planner: Planner,
+    db: AgentDatabase,
+    config: AgentConfig,
+    reflectionEngine: ReflectionEngine,
+    outcomeVerifier: OutcomeVerifier,
+    worldModel: WorldModel,
+    onOpenSettings: () -> Unit
+) {
     var command by remember { mutableStateOf("") }
     var currentPlan by remember { mutableStateOf<Plan?>(null) }
     var logs by remember { mutableStateOf(listOf<String>()) }
@@ -249,6 +289,10 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase, config: AgentConfig, onO
 
         Button(
             onClick = {
+                val ref = reflectionEngine
+                val out = outcomeVerifier
+                val world = worldModel
+
                 scope.launch {
                     logs = logs + "Planning: $command"
                     val bridge = AgentBridge.instance
@@ -267,6 +311,9 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase, config: AgentConfig, onO
                                 accessibilityProvider = bridge,
                                 verificationProvider = bridge,
                                 memoryProvider = AgentMemoryProvider(db),
+                                reflectionProvider = ref,
+                                outcomeProvider = out,
+                                worldModelProvider = world,
                                 onActionStarted = { action ->
                                     scope.launch { logs = logs + "Starting: ${action.type}" }
                                 },
@@ -308,8 +355,8 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase, config: AgentConfig, onO
 
         if (showAnalytics) {
             FailureAnalyticsView(db)
-            LearningEvaluationView()
-            PredictionMonitorView()
+            LearningEvaluationView(db)
+            PredictionMonitorView(db)
         }
 
         if (showHistory) {

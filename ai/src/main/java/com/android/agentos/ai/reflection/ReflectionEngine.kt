@@ -1,14 +1,15 @@
 package com.android.agentos.ai.reflection
 
 import com.android.agentos.core.models.*
+import com.android.agentos.core.engine.ReflectionProvider
 
-class ReflectionEngine(private val llmProvider: LLMProvider) {
+class ReflectionEngine(private val llmProvider: LLMProvider) : ReflectionProvider {
 
-    suspend fun reflectAndReplan(
+    override suspend fun reflectAndReplan(
         originalGoal: String,
         failure: FailureLog,
         screenContext: List<ScreenElement>
-    ): Plan {
+    ): Plan? {
         val repairPrompt = """
             Original Goal: $originalGoal
             Failure: ${failure.errorType} - ${failure.errorMessage}
