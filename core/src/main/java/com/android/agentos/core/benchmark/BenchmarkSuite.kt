@@ -55,7 +55,8 @@ class BenchmarkSuite(
         SINGLE_APP,
         CROSS_APP,
         KNOWLEDGE,
-        LONG_HORIZON
+        LONG_HORIZON,
+        GENERALIZATION
     }
 
     fun getPerAppStats(): Map<String, Int> {

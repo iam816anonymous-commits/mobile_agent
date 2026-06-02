@@ -62,7 +62,8 @@ class Executor(
             var retries = 0
 
             while (!success && retries < MAX_RETRIES) {
-                val beforeState = accessibilityProvider.getCurrentScreenState().classification
+                val beforeStateObj = accessibilityProvider.getCurrentScreenState()
+                val beforeState = beforeStateObj.classification
                 val predictedNextState = worldModelProvider?.predictNextState(beforeState, step.type)
 
                 onActionStarted(step)
@@ -73,6 +74,14 @@ class Executor(
 
                 if (performed) {
                     delay(ACTION_DELAY) // Wait for UI transition
+
+                    // Dynamic Adaptation: check if layout changed radically
+                    val currentElements = accessibilityProvider.getCurrentScreenHierarchy()
+                    if (currentElements.size != beforeStateObj.elements.size) {
+                        Log.i(TAG, "Dynamic UI Adaptation triggered: elements count changed from ${beforeStateObj.elements.size} to ${currentElements.size}")
+                        // Add extra delay for dynamic layouts (list to grid etc)
+                        delay(1000)
+                    }
 
                     // 2. Observe & Verify
                     val afterState = accessibilityProvider.getCurrentScreenState()

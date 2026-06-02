@@ -42,7 +42,16 @@ class RuleBasedLLMProvider : LLMProvider {
                 }
             }
             normalizedInput.contains("notes") || normalizedInput.contains("note") -> {
-                if (normalizedInput.contains("chrome") && normalizedInput.contains("search")) {
+                if (normalizedInput.contains("weather") || normalizedInput.contains("summarize")) {
+                    // Knowledge task: Research & Summarize
+                    steps.add(AgentAction(ActionType.OPEN_APP, target = "com.android.chrome"))
+                    steps.add(AgentAction(ActionType.TYPE_TEXT, text = userInput))
+                    steps.add(AgentAction(ActionType.CLICK, target = "Enter"))
+                    steps.add(AgentAction(ActionType.MONITOR_FOR_ELEMENT, target = "Results"))
+                    steps.add(AgentAction(ActionType.OPEN_APP, target = "com.google.android.keep"))
+                    steps.add(AgentAction(ActionType.TYPE_TEXT, text = "Summary of: $userInput"))
+                    steps.add(AgentAction(ActionType.VERIFY_ELEMENT, target = "Summary"))
+                } else if (normalizedInput.contains("chrome") && normalizedInput.contains("search")) {
                     // Multi-step: Search Chrome then Note
                     val query = userInput.substring(userInput.lowercase().indexOf("search") + "search".length).split("then").first().trim()
                     steps.add(AgentAction(ActionType.OPEN_APP, target = "com.android.chrome"))

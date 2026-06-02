@@ -2,10 +2,14 @@ package com.android.agentos.ai
 
 import com.android.agentos.core.models.*
 import com.android.agentos.core.memory.EpisodicMemory
+import com.android.agentos.ai.reasoning.UtilityEvaluator
+import com.android.agentos.ai.reasoning.GoalDecomposer
 
 class Planner(
     private val llmProvider: LLMProvider,
-    private val episodicMemory: EpisodicMemory? = null
+    private val episodicMemory: EpisodicMemory? = null,
+    private val utilityEvaluator: UtilityEvaluator = UtilityEvaluator(),
+    private val goalDecomposer: GoalDecomposer = GoalDecomposer(llmProvider)
 ) {
 
     private val actionHistory = mutableListOf<ActionHistory>()
@@ -21,7 +25,13 @@ class Planner(
             "Goal: $userInput\nContext from past success: ${similarEpisodes[0].plan.steps.take(3)}"
         } else userInput
 
-        return llmProvider.generatePlan(enhancedInput, screenContext)
+        val subgoals = goalDecomposer.decomposeGoal(userInput, screenContext)
+        val plan = llmProvider.generatePlan(enhancedInput, screenContext)
+
+        // Utility-based ranking of steps if multiple options were implied (simplified)
+        val rankedSteps = utilityEvaluator.rankActions(plan.steps)
+
+        return plan.copy(steps = rankedSteps, subgoals = subgoals)
     }
 
     suspend fun verifyExecution(action: AgentAction, screenContext: List<ScreenElement>): VerificationResult {
