@@ -14,14 +14,20 @@ class ContextAssembler(private val db: AgentDatabase) {
         val entities = db.agentDao().searchGraphEntities("%$goal%")
 
         val contextBuilder = StringBuilder()
-        contextBuilder.append("Relevant Context:\n")
+        contextBuilder.append("Relevant Evidence-Based Context:\n")
 
-        if (facts.isNotEmpty()) {
-            contextBuilder.append("- Facts: ${facts.take(3).joinToString { it.content }}\n")
+        facts.take(5).forEach { fact ->
+            val evidence = db.agentDao().getEvidenceForKnowledge(fact.id)
+            val trustPrefix = if (fact.trustScore > 0.8f) "[Verified]" else if (fact.trustScore < 0.4f) "[Low Confidence]" else "[Unverified]"
+
+            contextBuilder.append("- $trustPrefix ${fact.content}\n")
+            if (evidence.isNotEmpty()) {
+                contextBuilder.append("  (Source: ${evidence.first().sourceApp ?: evidence.first().modelName})\n")
+            }
         }
 
         if (entities.isNotEmpty()) {
-            contextBuilder.append("- Entities: ${entities.joinToString { it.name }}\n")
+            contextBuilder.append("- Key Entities: ${entities.joinToString { it.name }}\n")
         }
 
         return contextBuilder.toString()

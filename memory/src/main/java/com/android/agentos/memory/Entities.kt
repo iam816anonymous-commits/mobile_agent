@@ -65,7 +65,34 @@ data class KnowledgeEntity(
     val usefulnessCount: Int = 0,
     val trustScore: Float = 1.0f,
     val lastVerifiedTimestamp: Long = System.currentTimeMillis(),
-    val decayRate: Float = 0.01f, // Daily confidence decay
+    val decayRate: Float = 0.01f,
+    val isDerived: Boolean = false,
+    val provenanceId: String? = null,
+    val evidenceCoverage: Float = 0f,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "evidence_records")
+data class EvidenceRecord(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val knowledgeId: Long,
+    val claim: String,
+    val evidenceContent: String,
+    val sourceUrl: String?,
+    val sourceApp: String?,
+    val modelName: String?,
+    val confidence: Float,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "verification_logs")
+data class VerificationLog(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val knowledgeId: Long,
+    val verifiedBy: String, // Model name or Tool name
+    val method: String, // CROSS_CHECK, RE_SEARCH, USER_CONFIRM
+    val outcome: Boolean,
+    val updatedTrust: Float,
     val timestamp: Long = System.currentTimeMillis()
 )
 
