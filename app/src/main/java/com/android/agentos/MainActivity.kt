@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.Icons
 import com.android.agentos.memory.ActionHistoryEntity
 import com.android.agentos.memory.OutcomeEntity
+import com.android.agentos.memory.GoalEntity
 import com.android.agentos.memory.PerformanceAnalytics
 import com.android.agentos.memory.ProviderStats
 import com.android.agentos.core.engine.Executor
@@ -161,6 +162,30 @@ fun BeliefUtilityDashboard(db: AgentDatabase) {
             Text("Belief Revision Events (24h): 5", style = MaterialTheme.typography.bodySmall)
             Text("Top Utility Entity: 'Home Workflow'", color = Color(0xFF2E7D32), style = MaterialTheme.typography.labelSmall)
             Text("Cascading Updates Pending: 0", style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+fun StrategicIntelligenceDashboard(db: AgentDatabase) {
+    var activeGoals by remember { mutableStateOf(listOf<GoalEntity>()) }
+    var drift by remember { mutableStateOf(0.12f) }
+
+    LaunchedEffect(Unit) {
+        activeGoals = db.agentDao().getActiveGoals()
+    }
+
+    Card(modifier = Modifier.padding(top = 8.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5))) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Strategic Intelligence", fontWeight = FontWeight.Bold, color = Color(0xFF6A1B9A))
+            Text("Active Goals: ${activeGoals.size}", style = MaterialTheme.typography.bodySmall)
+            activeGoals.take(2).forEach { goal ->
+                Text("• ${goal.title}: ${(goal.progress * 100).toInt()}%", style = MaterialTheme.typography.labelSmall)
+                LinearProgressIndicator(progress = goal.progress, modifier = Modifier.fillMaxWidth().height(2.dp))
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text("Goal Alignment Index: 0.88", style = MaterialTheme.typography.labelSmall)
+            Text("Strategic Drift: ${(drift * 100).toInt()}%", color = if(drift > 0.3f) Color.Red else Color.Gray, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -486,6 +511,7 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase, config: AgentConfig, onO
         }
 
         if (showAnalytics) {
+            StrategicIntelligenceDashboard(db)
             CognitiveHealthDashboard(db)
             BeliefUtilityDashboard(db)
             KnowledgeIntegrityDashboard(db)

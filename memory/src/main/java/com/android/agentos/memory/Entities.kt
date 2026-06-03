@@ -87,6 +87,30 @@ data class CognitiveBudgetRecord(
     val reasoningLimit: Double = 500.0
 )
 
+@Entity(tableName = "goals")
+data class GoalEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val parentGoalId: Long?,
+    val term: String, // SHORT, MEDIUM, LONG
+    val title: String,
+    val description: String,
+    val targetOutcome: String?,
+    val progress: Float = 0f,
+    val status: String = "ACTIVE", // ACTIVE, COMPLETED, ABANDONED
+    val priority: Float = 1.0f,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "proven_strategies")
+data class StrategyRecord(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val goalTitle: String,
+    val stepsJson: String,
+    val successCount: Int,
+    val avgQualityScore: Float,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 @Entity(tableName = "user_interests")
 data class InterestRecord(
     @PrimaryKey val interest: String,

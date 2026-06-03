@@ -99,9 +99,21 @@ interface AgentDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInterest(interest: InterestRecord)
+
+    @Query("SELECT * FROM goals WHERE status = 'ACTIVE' ORDER BY priority DESC")
+    suspend fun getActiveGoals(): List<GoalEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertGoal(goal: GoalEntity)
+
+    @Query("SELECT * FROM proven_strategies WHERE goalTitle = :goalTitle")
+    suspend fun getStrategiesForGoal(goalTitle: String): List<StrategyRecord>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertStrategy(strategy: StrategyRecord)
 }
 
-@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class, KnowledgeEntity::class, GraphEntityRecord::class, GraphRelationshipRecord::class, CurationEvent::class, EvidenceRecord::class, VerificationLog::class, KnowledgeDependency::class, CognitiveBudgetRecord::class, InterestRecord::class], version = 8)
+@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class, KnowledgeEntity::class, GraphEntityRecord::class, GraphRelationshipRecord::class, CurationEvent::class, EvidenceRecord::class, VerificationLog::class, KnowledgeDependency::class, CognitiveBudgetRecord::class, InterestRecord::class, GoalEntity::class, StrategyRecord::class], version = 9)
 abstract class AgentDatabase : RoomDatabase() {
     abstract fun agentDao(): AgentDao
 }
