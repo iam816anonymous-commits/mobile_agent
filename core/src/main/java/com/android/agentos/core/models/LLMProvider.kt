@@ -4,7 +4,14 @@ interface LLMProvider {
     val name: String
     suspend fun generatePlan(userInput: String, screenContext: List<ScreenElement>): Plan
     suspend fun verifyAction(action: AgentAction, screenContext: List<ScreenElement>): VerificationResult
+    fun getUsageMetrics(): UsageMetrics? = null
 }
+
+data class UsageMetrics(
+    val inputTokens: Int,
+    val outputTokens: Int,
+    val estimatedCost: Double
+)
 
 data class VerificationResult(
     val success: Boolean,

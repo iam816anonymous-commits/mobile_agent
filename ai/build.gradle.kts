@@ -21,9 +21,11 @@ android {
 dependencies {
     implementation(project(":core"))
     implementation(project(":tools"))
+    implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.mediapipe.tasks.genai)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.android) // for runBlocking

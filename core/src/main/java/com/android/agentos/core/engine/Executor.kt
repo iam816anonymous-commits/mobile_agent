@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 class Executor(
     private val accessibilityProvider: AccessibilityProvider,
     private val verificationProvider: VerificationProvider,
+    private val llmProvider: LLMProvider? = null,
     private val memoryProvider: MemoryProvider,
     private val reflectionProvider: ReflectionProvider? = null,
     private val outcomeProvider: OutcomeProvider? = null,
@@ -40,6 +41,7 @@ class Executor(
 
         plan.status = PlanStatus.EXECUTING
 
+        val startTime = System.currentTimeMillis()
         while (plan.currentStepIndex < plan.steps.size) {
             if (plan.status == PlanStatus.PAUSED) break
 
@@ -149,6 +151,17 @@ class Executor(
             val finalScreen = accessibilityProvider.getCurrentScreenHierarchy()
             val outcomeVerified = outcomeProvider?.verifyGoalAchievement(plan.goal, finalScreen) ?: true
 
+            val duration = System.currentTimeMillis() - startTime
+            llmProvider?.let {
+                memoryProvider.logProviderMetric(
+                    it.name,
+                    plan.id,
+                    duration,
+                    it.getUsageMetrics(),
+                    outcomeVerified
+                )
+            }
+
             if (outcomeVerified) {
                 plan.status = PlanStatus.COMPLETED
                 Log.i(TAG, "Plan Goal achieved and verified: ${plan.goal}")
@@ -174,6 +187,7 @@ interface MemoryProvider {
     suspend fun logAction(planId: String, action: AgentAction, result: ExecutionResult)
     suspend fun logFailure(failure: FailureLog)
     suspend fun logOutcome(planId: String, goal: String, success: Boolean, observedOutcome: String?)
+    suspend fun logProviderMetric(providerName: String, planId: String, latency: Long, usage: UsageMetrics?, success: Boolean)
 }
 
 interface ReflectionProvider {

@@ -6,10 +6,11 @@ import com.android.agentos.ai.reasoning.UtilityEvaluator
 import com.android.agentos.ai.reasoning.GoalDecomposer
 
 class Planner(
-    private val llmProvider: LLMProvider,
+    private var llmProvider: LLMProvider,
     private val episodicMemory: EpisodicMemory? = null,
     private val utilityEvaluator: UtilityEvaluator = UtilityEvaluator(),
-    private val goalDecomposer: GoalDecomposer = GoalDecomposer(llmProvider)
+    private var goalDecomposer: GoalDecomposer = GoalDecomposer(llmProvider),
+    private val router: IntelligenceRouter? = null
 ) {
 
     private val actionHistory = mutableListOf<ActionHistory>()
@@ -18,6 +19,9 @@ class Planner(
      * Generates a hierarchical multi-step plan based on user input and current screen state.
      */
     suspend fun generatePlan(userInput: String, screenContext: List<ScreenElement>): Plan {
+        // Dynamic provider selection
+        val selectedProvider = router?.selectProvider(userInput) ?: llmProvider
+
         val similarEpisodes = episodicMemory?.retrieveSimilar(userInput) ?: emptyList()
 
         // Enhance prompt with episodic context if available
@@ -26,7 +30,7 @@ class Planner(
         } else userInput
 
         val subgoals = goalDecomposer.decomposeGoal(userInput, screenContext)
-        val plan = llmProvider.generatePlan(enhancedInput, screenContext)
+        val plan = selectedProvider.generatePlan(enhancedInput, screenContext)
 
         // Utility-based ranking of steps if multiple options were implied (simplified)
         val rankedSteps = utilityEvaluator.rankActions(plan.steps)

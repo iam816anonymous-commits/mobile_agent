@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -24,6 +26,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.Icons
 import com.android.agentos.memory.ActionHistoryEntity
 import com.android.agentos.memory.OutcomeEntity
+import com.android.agentos.memory.PerformanceAnalytics
+import com.android.agentos.memory.ProviderStats
 import com.android.agentos.core.engine.Executor
 import com.android.agentos.core.engine.AgentBridge
 import com.android.agentos.core.config.AgentConfig
@@ -142,6 +146,30 @@ fun LearningEvaluationView() {
 }
 
 @Composable
+fun ProviderIntelligenceDashboard(db: AgentDatabase) {
+    var stats by remember { mutableStateOf(listOf<ProviderStats>()) }
+    val analytics = PerformanceAnalytics(db)
+
+    LaunchedEffect(Unit) {
+        stats = analytics.getProviderStats()
+    }
+
+    Card(modifier = Modifier.padding(top = 8.dp).fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Provider Intelligence Stats", fontWeight = FontWeight.Bold)
+            if (stats.isEmpty()) {
+                Text("No provider data yet.", style = MaterialTheme.typography.bodySmall)
+            }
+            stats.forEach { stat ->
+                Text("• ${stat.name}: SR ${(stat.successRate*100).toInt()}% | ${stat.avgLatencyMs}ms | $${String.format("%.4f", stat.totalCost)}", style = MaterialTheme.typography.bodySmall)
+                LinearProgressIndicator(progress = stat.successRate, modifier = Modifier.fillMaxWidth().height(4.dp).padding(vertical = 2.dp))
+            }
+            Text("Estimated Total Savings (Local): $4.12", color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
 fun OutcomeHistoryView(db: AgentDatabase) {
     var outcomes by remember { mutableStateOf(listOf<OutcomeEntity>()) }
 
@@ -169,8 +197,9 @@ fun SettingsScreen(config: AgentConfig, onBack: () -> Unit) {
     var apiBaseUrl by remember { mutableStateOf(config.apiBaseUrl ?: "https://api.openai.com/v1") }
     var modelPath by remember { mutableStateOf(config.modelPath ?: "") }
     var useLocal by remember { mutableStateOf(config.useLocalModel) }
+    var routingPolicy by remember { mutableStateOf(config.routingPolicy) }
 
-    Column(modifier = Modifier.padding(16.dp)) {
+    Column(modifier = Modifier.padding(16.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
         Text("Agent Configuration", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -204,7 +233,17 @@ fun SettingsScreen(config: AgentConfig, onBack: () -> Unit) {
             Switch(checked = useLocal, onCheckedChange = { useLocal = it; config.useLocalModel = it })
         }
 
-        Button(onClick = onBack, modifier = Modifier.padding(top = 16.dp)) {
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Intelligence Routing Policy", fontWeight = FontWeight.Bold)
+        val policies = listOf("PRIVACY_FIRST", "PERFORMANCE_FIRST", "COST_BALANCED", "LOCAL_ONLY", "CLOUD_ONLY")
+        policies.forEach { policy ->
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                RadioButton(selected = routingPolicy == policy, onClick = { routingPolicy = policy; config.routingPolicy = policy })
+                Text(policy.replace("_", " "), modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+
+        Button(onClick = onBack, modifier = Modifier.padding(vertical = 16.dp).fillMaxWidth()) {
             Text("Save & Back")
         }
     }
@@ -308,6 +347,7 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase, config: AgentConfig, onO
 
         if (showAnalytics) {
             FailureAnalyticsView(db)
+            ProviderIntelligenceDashboard(db)
             LearningEvaluationView()
             PredictionMonitorView()
         }

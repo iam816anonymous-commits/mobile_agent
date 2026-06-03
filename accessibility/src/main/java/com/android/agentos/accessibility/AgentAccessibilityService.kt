@@ -41,8 +41,10 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
     }
 
     override fun getCurrentScreenState(): ScreenState {
-        val packageName = rootInActiveWindow?.packageName?.toString()
+        val root = rootInActiveWindow
+        val packageName = root?.packageName?.toString()
         val elements = getCurrentScreenHierarchy()
+        root?.recycle()
         return classifier.classify(packageName, elements)
     }
 
@@ -53,6 +55,7 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
         val root = rootInActiveWindow ?: return emptyList()
         val elements = mutableListOf<ScreenElement>()
         flattenHierarchy(root, elements)
+        root.recycle()
         return elements
     }
 
@@ -160,8 +163,10 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
             val node = nodes[0]
             val result = performClickOnNode(node)
             nodes.forEach { it.recycle() }
+            root.recycle()
             return result
         }
+        root.recycle()
         return false
     }
 
@@ -190,8 +195,10 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
             arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
             val result = focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
             focus.recycle()
+            root.recycle()
             return result
         }
+        root.recycle()
         return false
     }
 
@@ -215,20 +222,25 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
         val nodesByText = root.findAccessibilityNodeInfosByText(target)
         if (nodesByText.isNotEmpty()) {
             nodesByText.forEach { it.recycle() }
+            root.recycle()
             return true
         }
         val nodesById = root.findAccessibilityNodeInfosByViewId(target)
         if (nodesById.isNotEmpty()) {
             nodesById.forEach { it.recycle() }
+            root.recycle()
             return true
         }
+        root.recycle()
         return false
     }
 
     private fun scroll(down: Boolean): Boolean {
         val root = rootInActiveWindow ?: return false
         val action = if (down) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
-        return performScrollOnFirstScrollable(root, action)
+        val result = performScrollOnFirstScrollable(root, action)
+        root.recycle()
+        return result
     }
 
     private fun performScrollOnFirstScrollable(node: AccessibilityNodeInfo, action: Int): Boolean {

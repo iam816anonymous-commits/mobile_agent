@@ -50,3 +50,16 @@ data class OutcomeEntity(
     val success: Boolean,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "provider_metrics")
+data class ProviderMetricsEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val providerName: String,
+    val planId: String,
+    val latencyMs: Long,
+    val inputTokens: Int,
+    val outputTokens: Int,
+    val estimatedCost: Double,
+    val success: Boolean,
+    val timestamp: Long = System.currentTimeMillis()
+)

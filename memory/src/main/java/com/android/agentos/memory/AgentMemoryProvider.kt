@@ -4,6 +4,7 @@ import com.android.agentos.core.engine.MemoryProvider
 import com.android.agentos.core.models.AgentAction
 import com.android.agentos.core.models.ExecutionResult
 import com.android.agentos.core.models.FailureLog
+import com.android.agentos.core.models.UsageMetrics
 
 class AgentMemoryProvider(private val db: AgentDatabase) : MemoryProvider {
     override suspend fun logAction(planId: String, action: AgentAction, result: ExecutionResult) {
@@ -41,6 +42,26 @@ class AgentMemoryProvider(private val db: AgentDatabase) : MemoryProvider {
                 goal = goal,
                 expectedOutcome = "Verified by Agent",
                 observedOutcome = observedOutcome,
+                success = success
+            )
+        )
+    }
+
+    override suspend fun logProviderMetric(
+        providerName: String,
+        planId: String,
+        latency: Long,
+        usage: UsageMetrics?,
+        success: Boolean
+    ) {
+        db.agentDao().insertProviderMetric(
+            ProviderMetricsEntity(
+                providerName = providerName,
+                planId = planId,
+                latencyMs = latency,
+                inputTokens = usage?.inputTokens ?: 0,
+                outputTokens = usage?.outputTokens ?: 0,
+                estimatedCost = usage?.estimatedCost ?: 0.0,
                 success = success
             )
         )
