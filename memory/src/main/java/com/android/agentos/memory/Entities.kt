@@ -69,6 +69,18 @@ data class KnowledgeEntity(
     val isDerived: Boolean = false,
     val provenanceId: String? = null,
     val evidenceCoverage: Float = 0f,
+    val cumulativeUtility: Double = 0.0,
+    val reasoningContribution: Float = 0f,
+    val verificationCost: Double = 0.0,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "knowledge_dependencies")
+data class KnowledgeDependency(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val dependentKnowledgeId: Long, // Conclusion
+    val sourceKnowledgeId: Long, // Evidence or Claim
+    val relationshipType: String = "SUPPORTS",
     val timestamp: Long = System.currentTimeMillis()
 )
 

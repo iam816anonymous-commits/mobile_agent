@@ -78,9 +78,18 @@ interface AgentDao {
 
     @Query("SELECT * FROM verification_logs WHERE knowledgeId = :knowledgeId ORDER BY timestamp DESC")
     suspend fun getVerificationHistory(knowledgeId: Long): List<VerificationLog>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDependency(dependency: KnowledgeDependency)
+
+    @Query("SELECT * FROM knowledge_dependencies WHERE dependentKnowledgeId = :knowledgeId")
+    suspend fun getSourcesFor(knowledgeId: Long): List<KnowledgeDependency>
+
+    @Query("SELECT * FROM knowledge_dependencies WHERE sourceKnowledgeId = :knowledgeId")
+    suspend fun getDependentsOf(knowledgeId: Long): List<KnowledgeDependency>
 }
 
-@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class, KnowledgeEntity::class, GraphEntityRecord::class, GraphRelationshipRecord::class, CurationEvent::class, EvidenceRecord::class, VerificationLog::class], version = 6)
+@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class, KnowledgeEntity::class, GraphEntityRecord::class, GraphRelationshipRecord::class, CurationEvent::class, EvidenceRecord::class, VerificationLog::class, KnowledgeDependency::class], version = 7)
 abstract class AgentDatabase : RoomDatabase() {
     abstract fun agentDao(): AgentDao
 }

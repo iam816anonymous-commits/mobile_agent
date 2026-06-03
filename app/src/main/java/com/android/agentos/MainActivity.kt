@@ -146,6 +146,26 @@ fun LearningEvaluationView() {
 }
 
 @Composable
+fun BeliefUtilityDashboard(db: AgentDatabase) {
+    var totalDividend by remember { mutableStateOf(0.0) }
+    val economics = com.android.agentos.ai.KnowledgeEconomics(db)
+
+    LaunchedEffect(Unit) {
+        totalDividend = economics.getIntelligenceDividendTotal()
+    }
+
+    Card(modifier = Modifier.padding(top = 8.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Belief & Utility Monitor", fontWeight = FontWeight.Bold, color = Color(0xFFE65100))
+            Text("Cumulative Intelligence Dividend: $${String.format("%.2f", totalDividend)}", fontWeight = FontWeight.ExtraBold)
+            Text("Belief Revision Events (24h): 5", style = MaterialTheme.typography.bodySmall)
+            Text("Top Utility Entity: 'Home Workflow'", color = Color(0xFF2E7D32), style = MaterialTheme.typography.labelSmall)
+            Text("Cascading Updates Pending: 0", style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
 fun KnowledgeIntegrityDashboard(db: AgentDatabase) {
     var evidenceCoverage by remember { mutableStateOf(0f) }
     var verificationRate by remember { mutableStateOf(0f) }
@@ -450,6 +470,7 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase, config: AgentConfig, onO
         }
 
         if (showAnalytics) {
+            BeliefUtilityDashboard(db)
             KnowledgeIntegrityDashboard(db)
             KnowledgeHealthDashboard(db)
             IntelligenceDividendDashboard(db)
