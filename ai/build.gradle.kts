@@ -20,6 +20,9 @@ android {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":memory"))
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
     implementation(project(":tools"))
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.core.ktx)

@@ -48,6 +48,21 @@ data class OutcomeEntity(
     val expectedOutcome: String?,
     val observedOutcome: String?,
     val success: Boolean,
+    val manualEffortMinutes: Int = 0,
+    val executionTimeMs: Long = 0,
+    val qualityScore: Float = 0f, // 0.0 to 1.0 usefulness/quality
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "knowledge_base")
+data class KnowledgeEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val sourcePlanId: String?,
+    val category: String, // Research, Summary, Fact, Habit
+    val title: String,
+    val content: String,
+    val tags: String, // Comma-separated
+    val usefulnessCount: Int = 0,
     val timestamp: Long = System.currentTimeMillis()
 )
 

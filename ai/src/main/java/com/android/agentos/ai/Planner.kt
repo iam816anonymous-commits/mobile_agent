@@ -19,6 +19,9 @@ class Planner(
      * Generates a hierarchical multi-step plan based on user input and current screen state.
      */
     suspend fun generatePlan(userInput: String, screenContext: List<ScreenElement>): Plan {
+        // Phase 5: Knowledge-Augmented Planning
+        val knowledgeContext = episodicMemory?.retrieveSimilar(userInput) // Placeholder for actual KB search
+
         // Dynamic provider selection
         val selectedProvider = router?.selectProvider(userInput) ?: llmProvider
 

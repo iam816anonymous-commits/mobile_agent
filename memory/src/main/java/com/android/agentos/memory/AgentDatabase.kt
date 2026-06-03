@@ -39,9 +39,18 @@ interface AgentDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProviderMetric(metric: ProviderMetricsEntity)
+
+    @Query("SELECT * FROM knowledge_base ORDER BY timestamp DESC")
+    suspend fun getAllKnowledge(): List<KnowledgeEntity>
+
+    @Query("SELECT * FROM knowledge_base WHERE content LIKE :query OR tags LIKE :query")
+    suspend fun searchKnowledge(query: String): List<KnowledgeEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertKnowledge(knowledge: KnowledgeEntity)
 }
 
-@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class], version = 2)
+@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class, KnowledgeEntity::class], version = 3)
 abstract class AgentDatabase : RoomDatabase() {
     abstract fun agentDao(): AgentDao
 }

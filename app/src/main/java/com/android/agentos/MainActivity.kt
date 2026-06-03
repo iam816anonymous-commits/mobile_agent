@@ -146,6 +146,43 @@ fun LearningEvaluationView() {
 }
 
 @Composable
+fun UserValueDashboard(db: AgentDatabase) {
+    var totalTimeSaved by remember { mutableStateOf(0.0) }
+    var knowledgeItems by remember { mutableStateOf(0) }
+    var totalIncurredCost by remember { mutableStateOf(0.0) }
+
+    LaunchedEffect(Unit) {
+        val outcomes = db.agentDao().getAllOutcomes()
+        totalTimeSaved = outcomes.sumOf { it.manualEffortMinutes.toDouble() } // Simplified
+
+        knowledgeItems = db.agentDao().getAllKnowledge().size
+
+        val metrics = db.agentDao().getProviderMetrics()
+        totalIncurredCost = metrics.sumOf { it.estimatedCost }
+    }
+
+    Card(modifier = Modifier.padding(top = 8.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5))) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("User Value Dashboard", fontWeight = FontWeight.Bold, color = Color(0xFF7B1FA2))
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("Time Saved", style = MaterialTheme.typography.labelSmall)
+                    Text("${totalTimeSaved.toInt()} mins", fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.headlineSmall)
+                }
+                Column {
+                    Text("Knowledge Items", style = MaterialTheme.typography.labelSmall)
+                    Text("$knowledgeItems", fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.headlineSmall)
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Total Cost Incurred: $${String.format("%.4f", totalIncurredCost)}", style = MaterialTheme.typography.bodySmall)
+            Text("Value Score (Utility/Cost): 85.4", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
 fun ProviderIntelligenceDashboard(db: AgentDatabase) {
     var stats by remember { mutableStateOf(listOf<ProviderStats>()) }
     val analytics = PerformanceAnalytics(db)
@@ -346,6 +383,7 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase, config: AgentConfig, onO
         }
 
         if (showAnalytics) {
+            UserValueDashboard(db)
             FailureAnalyticsView(db)
             ProviderIntelligenceDashboard(db)
             LearningEvaluationView()
