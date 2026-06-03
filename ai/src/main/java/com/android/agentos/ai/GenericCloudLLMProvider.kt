@@ -55,6 +55,8 @@ class GenericCloudLLMProvider(
         val total_tokens: Int
     )
 
+    var toolRegistry: ToolRegistry? = null
+
     override suspend fun generatePlan(userInput: String, screenContext: List<ScreenElement>): Plan {
         if (apiKey.isEmpty()) {
             return Plan(goal = userInput, steps = emptyList(), status = PlanStatus.FAILED)
@@ -98,16 +100,37 @@ class GenericCloudLLMProvider(
     }
 
     private fun buildPrompt(userInput: String, screenContext: List<ScreenElement>): String {
-        return "Goal: $userInput. Screen: ${screenContext.take(10).map { it.text }}. Output JSON array of actions: [{type, target, text}]."
+        val schema = """
+            [
+              { "type": "CLICK", "target": "string", "text": "string", "x": int, "y": int },
+              ...
+            ]
+        """.trimIndent()
+        val toolsMetadata = toolRegistry?.getToolMetadata() ?: "Standard Android Actions"
+
+        return """
+            System: You are a professional Android agent.
+            Goal: $userInput
+
+            Available Tools & Capabilities:
+            $toolsMetadata
+
+            Global Actions: OPEN_APP, CLICK, TYPE_TEXT, SCROLL_UP, SCROLL_DOWN, GO_BACK, WAIT, VERIFY_ELEMENT
+
+            Current Screen Elements: ${screenContext.take(15).map { it.text ?: it.contentDescription }}
+
+            Output ONLY a JSON array of actions following this schema:
+            $schema
+        """.trimIndent()
     }
 
     private fun extractJson(text: String): String {
-        val start = text.indexOf("[")
-        val end = text.lastIndexOf("]")
-        if (start != -1 && end != -1 && end > start) {
-            return text.substring(start, end + 1)
-        }
-        return text
+        val jsonArrayRegex = Regex("\\[[\\s\\S]*\\]")
+        val jsonObjectRegex = Regex("\\{[\\s\\S]*\\}")
+
+        return jsonArrayRegex.find(text)?.value
+            ?: jsonObjectRegex.find(text)?.value
+            ?: text
     }
 
     override suspend fun verifyAction(action: AgentAction, screenContext: List<ScreenElement>): VerificationResult {

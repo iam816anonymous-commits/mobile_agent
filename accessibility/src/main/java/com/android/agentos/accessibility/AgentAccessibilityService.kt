@@ -189,17 +189,38 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
 
     private fun typeText(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
-        val focus = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        if (focus != null) {
+        var targetNode = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+
+        if (targetNode == null) {
+            Log.d(TAG, "No node has FOCUS_INPUT, searching for first editable node")
+            targetNode = findFirstEditableNode(root)
+            targetNode?.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        }
+
+        if (targetNode != null) {
             val arguments = Bundle()
             arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
-            val result = focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-            focus.recycle()
+            val result = targetNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+            targetNode.recycle()
             root.recycle()
             return result
         }
+
         root.recycle()
         return false
+    }
+
+    private fun findFirstEditableNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        if (node.isEditable) return node
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i)
+            if (child != null) {
+                val found = findFirstEditableNode(child)
+                if (found != null) return found
+                child.recycle()
+            }
+        }
+        return null
     }
 
     override suspend fun verifyAction(action: AgentAction, screenContext: List<ScreenElement>): VerificationResult {
