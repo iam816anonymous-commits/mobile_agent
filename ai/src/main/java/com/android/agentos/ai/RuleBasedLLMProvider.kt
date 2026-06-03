@@ -10,6 +10,19 @@ class RuleBasedLLMProvider : LLMProvider {
         val normalizedInput = userInput.lowercase()
 
         when {
+            normalizedInput.contains("chrome") && (normalizedInput.contains("keep") || normalizedInput.contains("note")) -> {
+                // Requested Demo Workflow: Chrome Search -> Keep Note
+                val query = "Android AI agents"
+                steps.add(AgentAction(ActionType.OPEN_APP, target = "com.android.chrome"))
+                steps.add(AgentAction(ActionType.CLICK, target = "Search or type web address"))
+                steps.add(AgentAction(ActionType.TYPE_TEXT, text = query))
+                steps.add(AgentAction(ActionType.CLICK, target = "Enter"))
+                steps.add(AgentAction(ActionType.WAIT))
+                steps.add(AgentAction(ActionType.OPEN_APP, target = "com.google.android.keep"))
+                steps.add(AgentAction(ActionType.CLICK, target = "New text note"))
+                steps.add(AgentAction(ActionType.TYPE_TEXT, text = "Research Result for $query: Local Agent OS is functional."))
+                steps.add(AgentAction(ActionType.VERIFY_ELEMENT, target = "Research Result"))
+            }
             normalizedInput.contains("chrome") -> {
                 steps.add(AgentAction(ActionType.OPEN_APP, target = "com.android.chrome"))
                 if (normalizedInput.contains("search")) {
