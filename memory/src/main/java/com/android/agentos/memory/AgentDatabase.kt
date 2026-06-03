@@ -48,9 +48,21 @@ interface AgentDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertKnowledge(knowledge: KnowledgeEntity)
+
+    @Query("SELECT * FROM graph_entities WHERE name LIKE :query")
+    suspend fun searchGraphEntities(query: String): List<GraphEntityRecord>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertGraphEntity(entity: GraphEntityRecord)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRelationship(relationship: GraphRelationshipRecord)
+
+    @Query("SELECT * FROM graph_relationships WHERE fromEntityId = :entityId OR toEntityId = :entityId")
+    suspend fun getRelationships(entityId: String): List<GraphRelationshipRecord>
 }
 
-@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class, KnowledgeEntity::class], version = 3)
+@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class, KnowledgeEntity::class, GraphEntityRecord::class, GraphRelationshipRecord::class], version = 4)
 abstract class AgentDatabase : RoomDatabase() {
     abstract fun agentDao(): AgentDao
 }

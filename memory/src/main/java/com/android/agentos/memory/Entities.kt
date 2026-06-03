@@ -78,3 +78,24 @@ data class ProviderMetricsEntity(
     val success: Boolean,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "graph_entities")
+data class GraphEntityRecord(
+    @PrimaryKey val id: String, // UUID
+    val type: String, // e.g. Person, Place, Event, App
+    val name: String,
+    val propertiesJson: String, // Dynamic JSON properties
+    val confidence: Float,
+    val source: String?,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "graph_relationships")
+data class GraphRelationshipRecord(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val fromEntityId: String,
+    val toEntityId: String,
+    val relationshipType: String, // e.g. OWNS, USES, AT_LOCATION
+    val confidence: Float,
+    val timestamp: Long = System.currentTimeMillis()
+)
