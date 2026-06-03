@@ -60,9 +60,15 @@ interface AgentDao {
 
     @Query("SELECT * FROM graph_relationships WHERE fromEntityId = :entityId OR toEntityId = :entityId")
     suspend fun getRelationships(entityId: String): List<GraphRelationshipRecord>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCurationEvent(event: CurationEvent)
+
+    @Query("SELECT * FROM curation_history ORDER BY timestamp DESC")
+    suspend fun getCurationHistory(): List<CurationEvent>
 }
 
-@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class, KnowledgeEntity::class, GraphEntityRecord::class, GraphRelationshipRecord::class], version = 4)
+@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class, KnowledgeEntity::class, GraphEntityRecord::class, GraphRelationshipRecord::class, CurationEvent::class], version = 5)
 abstract class AgentDatabase : RoomDatabase() {
     abstract fun agentDao(): AgentDao
 }

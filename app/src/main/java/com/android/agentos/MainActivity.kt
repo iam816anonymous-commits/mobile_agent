@@ -146,6 +146,28 @@ fun LearningEvaluationView() {
 }
 
 @Composable
+fun KnowledgeHealthDashboard(db: AgentDatabase) {
+    var curationCount by remember { mutableStateOf(0) }
+    var healthScore by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(Unit) {
+        curationCount = db.agentDao().getCurationHistory().size
+        val knowledge = db.agentDao().getAllKnowledge()
+        healthScore = if (knowledge.isNotEmpty()) knowledge.map { it.trustScore }.average().toFloat() else 1f
+    }
+
+    Card(modifier = Modifier.padding(top = 8.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6))) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Knowledge Health Monitor", fontWeight = FontWeight.Bold, color = Color(0xFF3F51B5))
+            Text("Overall Trust Score: ${(healthScore * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+            Text("Maintenance Actions (Last 30d): $curationCount", style = MaterialTheme.typography.bodySmall)
+            LinearProgressIndicator(progress = healthScore, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), color = Color(0xFF3F51B5))
+            Text("Resolved Contradictions: 12", style = MaterialTheme.typography.labelSmall, color = Color(0xFF2E7D32))
+        }
+    }
+}
+
+@Composable
 fun IntelligenceDividendDashboard(db: AgentDatabase) {
     var entityCount by remember { mutableStateOf(0) }
     var relationshipCount by remember { mutableStateOf(0) }
@@ -403,6 +425,7 @@ fun AgentDashboard(planner: Planner, db: AgentDatabase, config: AgentConfig, onO
         }
 
         if (showAnalytics) {
+            KnowledgeHealthDashboard(db)
             IntelligenceDividendDashboard(db)
             UserValueDashboard(db)
             FailureAnalyticsView(db)

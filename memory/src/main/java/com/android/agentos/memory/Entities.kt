@@ -63,6 +63,9 @@ data class KnowledgeEntity(
     val content: String,
     val tags: String, // Comma-separated
     val usefulnessCount: Int = 0,
+    val trustScore: Float = 1.0f,
+    val lastVerifiedTimestamp: Long = System.currentTimeMillis(),
+    val decayRate: Float = 0.01f, // Daily confidence decay
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -87,6 +90,17 @@ data class GraphEntityRecord(
     val propertiesJson: String, // Dynamic JSON properties
     val confidence: Float,
     val source: String?,
+    val trustScore: Float = 1.0f,
+    val lastVerifiedTimestamp: Long = System.currentTimeMillis(),
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "curation_history")
+data class CurationEvent(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val eventType: String, // MERGE, ARCHIVE, CONTRADICTION_RESOLVED
+    val description: String,
+    val affectedEntityIds: String, // Comma-separated
     val timestamp: Long = System.currentTimeMillis()
 )
 
