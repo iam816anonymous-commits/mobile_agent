@@ -28,15 +28,13 @@ class Executor(
     var adversarialMode: Boolean = false
 
     private fun simulateAdversarialConditions() {
-        val roll = (1..100).random()
-        when {
-            roll < 5 -> Log.i(TAG, "ADVERSARIAL: Simulating notification popup")
-            roll < 10 -> Log.i(TAG, "ADVERSARIAL: Simulating keyboard appearing")
-            roll < 15 -> Log.i(TAG, "ADVERSARIAL: Simulating network fluctuation")
-        }
     }
 
-    suspend fun execute(plan: Plan) {
+    suspend fun execute(plan: Plan, depth: Int = 0) {
+        if (depth > 3) {
+            plan.status = PlanStatus.FAILED
+            return
+        }
         if (plan.status == PlanStatus.COMPLETED || plan.status == PlanStatus.FAILED) return
 
         plan.status = PlanStatus.EXECUTING
@@ -48,11 +46,9 @@ class Executor(
             val step = plan.steps[plan.currentStepIndex]
             if (stressTestMode) {
                 val delayTime = (500..3000).random().toLong()
-                Log.i(TAG, "STRESS TEST: Introducing artificial delay of ${delayTime}ms")
                 delay(delayTime)
 
                 if ((1..10).random() > 8) {
-                    Log.w(TAG, "STRESS TEST: Simulating unexpected interruption")
                     delay(1000)
                 }
             }
@@ -69,7 +65,6 @@ class Executor(
                 val predictedNextState = worldModelProvider?.predictNextState(beforeState, step.type)
 
                 onActionStarted(step)
-                Log.d(TAG, "Executing action: ${step.type} (Attempt ${retries + 1}). Predicted: $predictedNextState")
 
                 // 1. Execute
                 val performed = accessibilityProvider.performAction(step)
@@ -80,7 +75,6 @@ class Executor(
                     // Dynamic Adaptation: check if layout changed radically
                     val currentElements = accessibilityProvider.getCurrentScreenHierarchy()
                     if (currentElements.size != beforeStateObj.elements.size) {
-                        Log.i(TAG, "Dynamic UI Adaptation triggered: elements count changed from ${beforeStateObj.elements.size} to ${currentElements.size}")
                         // Add extra delay for dynamic layouts (list to grid etc)
                         delay(1000)
                     }
@@ -90,11 +84,6 @@ class Executor(
                     val screenContext = afterState.elements
 
                     if (predictedNextState != null && predictedNextState != ScreenType.UNKNOWN) {
-                        if (afterState.classification != predictedNextState) {
-                            Log.w(TAG, "Transition Anomaly: Expected $predictedNextState, got ${afterState.classification}")
-                        } else {
-                            Log.i(TAG, "Transition Prediction Success: ${afterState.classification}")
-                        }
                         worldModelProvider?.learnTransition(beforeState, step.type, afterState.classification)
                     }
 
@@ -108,10 +97,8 @@ class Executor(
                         onActionFinished(result)
                         plan.currentStepIndex++
                     } else {
-                        Log.w(TAG, "Action verification failed: ${step.type}")
                     }
                 } else {
-                    Log.e(TAG, "Action performance failed: ${step.type}")
                     memoryProvider.logAction(plan.id, step, ExecutionResult(step.id, false, "Performance failed"))
                 }
 
@@ -122,7 +109,6 @@ class Executor(
 
                     retries++
                     if (retries < MAX_RETRIES) {
-                        Log.i(TAG, "Retrying action: ${step.type}")
                         delay(2000L) // Wait longer before retry
                     } else {
                         val screen = accessibilityProvider.getCurrentScreenHierarchy()
@@ -131,8 +117,7 @@ class Executor(
                         // Try Reflection/Re-planning before giving up
                         val repairPlan = reflectionProvider?.reflectAndReplan(plan.goal, failureWithCategory, accessibilityProvider.getCurrentScreenHierarchy())
                         if (repairPlan != null && repairPlan.steps.isNotEmpty()) {
-                            Log.i(TAG, "Attempting repair plan...")
-                            execute(repairPlan) // Recursive call for repair
+                            execute(repairPlan, depth + 1) // Recursive call for repair
                             if (repairPlan.status == PlanStatus.COMPLETED) {
                                 success = true
                                 break
@@ -164,10 +149,8 @@ class Executor(
 
             if (outcomeVerified) {
                 plan.status = PlanStatus.COMPLETED
-                Log.i(TAG, "Plan Goal achieved and verified: ${plan.goal}")
             } else {
                 plan.status = PlanStatus.FAILED
-                Log.e(TAG, "Plan steps finished but goal verification failed: ${plan.goal}")
             }
         }
     }

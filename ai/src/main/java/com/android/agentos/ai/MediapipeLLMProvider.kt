@@ -71,11 +71,11 @@ class MediapipeLLMProvider(private val context: Context, private val modelPath: 
     }
 
     private fun extractJson(text: String): String {
-        val start = text.indexOf("[")
-        val end = text.lastIndexOf("]")
-        if (start != -1 && end != -1 && end > start) {
-            return text.substring(start, end + 1)
-        }
-        return text
+        val jsonArrayRegex = Regex("\\[[\\s\\S]*\\]")
+        val jsonObjectRegex = Regex("\\{[\\s\\S]*\\}")
+
+        return jsonArrayRegex.find(text)?.value
+            ?: jsonObjectRegex.find(text)?.value
+            ?: text
     }
 }
