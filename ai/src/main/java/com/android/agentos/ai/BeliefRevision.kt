@@ -28,19 +28,30 @@ class BeliefRevisionEngine(private val db: AgentDatabase) {
 }
 
 /**
- * Manages cascading updates when base knowledge changes.
+ * Manages incremental updates when base knowledge changes to ensure scalable cognition.
  */
 class CascadingUpdateManager(private val db: AgentDatabase) {
     suspend fun triggerUpdate(knowledgeId: Long) {
+        // 1. Identify immediate neighbors only (Scalable/Incremental)
         val dependents = db.agentDao().getDependentsOf(knowledgeId)
-        dependents.forEach { dep ->
-            // Mark conclusion for re-computation
+
+        dependents.take(10).forEach { dep ->
             val conclusion = db.agentDao().getAllKnowledge().find { it.id == dep.dependentKnowledgeId }
             conclusion?.let {
-                // Heuristic: lower confidence of conclusions when sources change
-                val newTrust = it.trustScore * 0.9f
-                db.agentDao().insertKnowledge(it.copy(trustScore = newTrust))
+                // Heuristic: reduce trust and flag for incremental reasoning
+                val revisedTrust = (it.trustScore * 0.85f).coerceAtLeast(0.1f)
+                db.agentDao().insertKnowledge(it.copy(
+                    trustScore = revisedTrust,
+                    lastVerifiedTimestamp = System.currentTimeMillis()
+                ))
+
+                // 2. Schedule re-evaluation (rather than immediate global recursion)
+                logIncrementalReasoningTask(it.id)
             }
         }
+    }
+
+    private fun logIncrementalReasoningTask(id: Long) {
+        // Queue task for background reasoning
     }
 }

@@ -72,7 +72,26 @@ data class KnowledgeEntity(
     val cumulativeUtility: Double = 0.0,
     val reasoningContribution: Float = 0f,
     val verificationCost: Double = 0.0,
+    val attentionWeight: Float = 1.0f,
+    val interestScore: Float = 0f,
     val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "cognitive_budgets")
+data class CognitiveBudgetRecord(
+    @PrimaryKey val date: String, // YYYY-MM-DD
+    val verificationSpent: Double,
+    val reasoningSpent: Double,
+    val storageSpent: Long,
+    val verificationLimit: Double = 100.0,
+    val reasoningLimit: Double = 500.0
+)
+
+@Entity(tableName = "user_interests")
+data class InterestRecord(
+    @PrimaryKey val interest: String,
+    val strength: Float,
+    val lastActiveTimestamp: Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "knowledge_dependencies")

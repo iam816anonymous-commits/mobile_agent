@@ -87,9 +87,21 @@ interface AgentDao {
 
     @Query("SELECT * FROM knowledge_dependencies WHERE sourceKnowledgeId = :knowledgeId")
     suspend fun getDependentsOf(knowledgeId: Long): List<KnowledgeDependency>
+
+    @Query("SELECT * FROM cognitive_budgets WHERE date = :date")
+    suspend fun getBudget(date: String): CognitiveBudgetRecord?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBudget(budget: CognitiveBudgetRecord)
+
+    @Query("SELECT * FROM user_interests ORDER BY strength DESC")
+    suspend fun getAllInterests(): List<InterestRecord>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInterest(interest: InterestRecord)
 }
 
-@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class, KnowledgeEntity::class, GraphEntityRecord::class, GraphRelationshipRecord::class, CurationEvent::class, EvidenceRecord::class, VerificationLog::class, KnowledgeDependency::class], version = 7)
+@Database(entities = [HabitEntity::class, WorkflowEntity::class, ActionHistoryEntity::class, FailureHistoryEntity::class, OutcomeEntity::class, ProviderMetricsEntity::class, KnowledgeEntity::class, GraphEntityRecord::class, GraphRelationshipRecord::class, CurationEvent::class, EvidenceRecord::class, VerificationLog::class, KnowledgeDependency::class, CognitiveBudgetRecord::class, InterestRecord::class], version = 8)
 abstract class AgentDatabase : RoomDatabase() {
     abstract fun agentDao(): AgentDao
 }
