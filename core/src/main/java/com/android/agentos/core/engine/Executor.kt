@@ -14,6 +14,7 @@ class Executor(
     private val outcomeProvider: OutcomeProvider? = null,
     private val worldModelProvider: WorldModelProvider? = null,
     private val failureClassifier: FailureClassifier = FailureClassifier(),
+    val stateMachine: LocalAgentStateMachine = LocalAgentStateMachine(),
     private val onActionStarted: (AgentAction) -> Unit,
     private val onActionFinished: (ExecutionResult) -> Unit,
     private val onFailure: (FailureLog) -> Unit
@@ -40,10 +41,29 @@ class Executor(
         if (plan.status == PlanStatus.COMPLETED || plan.status == PlanStatus.FAILED) return
 
         plan.status = PlanStatus.EXECUTING
+        stateMachine.transitionTo(AgentState.EXECUTING, "Executing plan: ${plan.goal}")
 
         val startTime = System.currentTimeMillis()
         while (plan.currentStepIndex < plan.steps.size) {
             if (plan.status == PlanStatus.PAUSED) break
+
+            // Check Safety Kill-Switch
+            if (AgentBridge.instance.isKilled.get()) {
+                stateMachine.transitionTo(AgentState.KILLED, "Safety kill-switch active")
+                plan.status = PlanStatus.FAILED
+                onFailure(FailureLog("KILL_SWITCH", FailureCategory.UNKNOWN, "KILLED", "Execution aborted by safety kill-switch"))
+                return
+            }
+
+            // Check Step-Counter Circuit Breaker
+            if (!stateMachine.incrementAndCheckCircuitBreaker()) {
+                Log.e(TAG, "Circuit breaker tripped! Halting execution after ${stateMachine.stepCounter.get()} steps.")
+                plan.status = PlanStatus.FAILED
+                val failure = FailureLog("CIRCUIT_BREAKER", FailureCategory.TIMEOUT, "CIRCUIT_BREAKER_TRIPPED", "Circuit breaker tripped after ${stateMachine.maxSteps} max steps")
+                memoryProvider.logFailure(failure)
+                onFailure(failure)
+                return
+            }
 
             val step = plan.steps[plan.currentStepIndex]
             if (stressTestMode) {
@@ -64,6 +84,12 @@ class Executor(
             var retries = 0
 
             while (!success && retries < MAX_RETRIES) {
+                if (AgentBridge.instance.isKilled.get()) {
+                    stateMachine.transitionTo(AgentState.KILLED, "Kill-switch activated during retry loop")
+                    plan.status = PlanStatus.FAILED
+                    return
+                }
+
                 val beforeStateObj = accessibilityProvider.getCurrentScreenState()
                 val beforeState = beforeStateObj.classification
                 val predictedNextState = worldModelProvider?.predictNextState(beforeState, step.type)
@@ -81,11 +107,11 @@ class Executor(
                     val currentElements = accessibilityProvider.getCurrentScreenHierarchy()
                     if (currentElements.size != beforeStateObj.elements.size) {
                         Log.i(TAG, "Dynamic UI Adaptation triggered: elements count changed from ${beforeStateObj.elements.size} to ${currentElements.size}")
-                        // Add extra delay for dynamic layouts (list to grid etc)
                         delay(1000)
                     }
 
                     // 2. Observe & Verify
+                    stateMachine.transitionTo(AgentState.VERIFYING, "Verifying ${step.type}")
                     val afterState = accessibilityProvider.getCurrentScreenState()
                     val screenContext = afterState.elements
 
@@ -107,6 +133,7 @@ class Executor(
                     if (success) {
                         onActionFinished(result)
                         plan.currentStepIndex++
+                        stateMachine.transitionTo(AgentState.EXECUTING, "Step verified, proceeding")
                     } else {
                         Log.w(TAG, "Action verification failed: ${step.type}")
                     }
@@ -116,6 +143,7 @@ class Executor(
                 }
 
                 if (!success) {
+                    stateMachine.transitionTo(AgentState.RECOVERING, "Action failed, entering recovery")
                     val category = failureClassifier.classifyFailure("EXECUTION_FAILURE", "Failed at attempt ${retries + 1}", accessibilityProvider.getCurrentScreenHierarchy())
                     val failure = FailureLog(step.id, category, "EXECUTION_FAILURE", "Failed at attempt ${retries + 1}")
                     memoryProvider.logFailure(failure)
@@ -123,16 +151,17 @@ class Executor(
                     retries++
                     if (retries < MAX_RETRIES) {
                         Log.i(TAG, "Retrying action: ${step.type}")
-                        delay(2000L) // Wait longer before retry
+                        delay(2000L)
                     } else {
                         val screen = accessibilityProvider.getCurrentScreenHierarchy()
                         val category = failureClassifier.classifyFailure("MAX_RETRIES", "Failed after $MAX_RETRIES attempts", screen)
                         val failureWithCategory = FailureLog(step.id, category, "MAX_RETRIES", "Failed after $MAX_RETRIES attempts")
+
                         // Try Reflection/Re-planning before giving up
                         val repairPlan = reflectionProvider?.reflectAndReplan(plan.goal, failureWithCategory, accessibilityProvider.getCurrentScreenHierarchy())
                         if (repairPlan != null && repairPlan.steps.isNotEmpty()) {
                             Log.i(TAG, "Attempting repair plan...")
-                            execute(repairPlan) // Recursive call for repair
+                            execute(repairPlan) // Recursive call sharing same stateMachine step counter
                             if (repairPlan.status == PlanStatus.COMPLETED) {
                                 success = true
                                 break
@@ -141,13 +170,14 @@ class Executor(
 
                         onFailure(failure)
                         plan.status = PlanStatus.FAILED
+                        stateMachine.transitionTo(AgentState.FAILED, "Max retries reached")
                         return
                     }
                 }
             }
         }
+
         if (plan.currentStepIndex >= plan.steps.size) {
-            // Final Outcome Verification
             val finalScreen = accessibilityProvider.getCurrentScreenHierarchy()
             val outcomeVerified = outcomeProvider?.verifyGoalAchievement(plan.goal, finalScreen) ?: true
 
@@ -164,9 +194,11 @@ class Executor(
 
             if (outcomeVerified) {
                 plan.status = PlanStatus.COMPLETED
+                stateMachine.transitionTo(AgentState.COMPLETED, "Goal verified and achieved")
                 Log.i(TAG, "Plan Goal achieved and verified: ${plan.goal}")
             } else {
                 plan.status = PlanStatus.FAILED
+                stateMachine.transitionTo(AgentState.FAILED, "Goal verification failed")
                 Log.e(TAG, "Plan steps finished but goal verification failed: ${plan.goal}")
             }
         }

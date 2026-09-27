@@ -10,35 +10,32 @@ class Planner(
     private val episodicMemory: EpisodicMemory? = null,
     private val utilityEvaluator: UtilityEvaluator = UtilityEvaluator(),
     private var goalDecomposer: GoalDecomposer = GoalDecomposer(llmProvider),
-    private val router: IntelligenceRouter? = null
+    private val router: IntelligenceRouter? = null,
+    private val adaptiveFallbackPlanner: AdaptiveFallbackPlanner? = null
 ) {
 
     private val actionHistory = mutableListOf<ActionHistory>()
 
     /**
-     * Generates a hierarchical multi-step plan based on user input and current screen state.
+     * Generates a hierarchical multi-step plan based on user input and current screen state,
+     * applying dynamic fallback adaptation using local persistence metrics.
      */
     suspend fun generatePlan(userInput: String, screenContext: List<ScreenElement>): Plan {
-        // Phase 5: Knowledge-Augmented Planning
-        val knowledgeContext = episodicMemory?.retrieveSimilar(userInput) // Placeholder for actual KB search
-
-        // Dynamic provider selection
         val selectedProvider = router?.selectProvider(userInput) ?: llmProvider
 
         val similarEpisodes = episodicMemory?.retrieveSimilar(userInput) ?: emptyList()
 
-        // Enhance prompt with episodic context if available
         val enhancedInput = if (similarEpisodes.isNotEmpty()) {
             "Goal: $userInput\nContext from past success: ${similarEpisodes[0].plan.steps.take(3)}"
         } else userInput
 
         val subgoals = goalDecomposer.decomposeGoal(userInput, screenContext)
-        val plan = selectedProvider.generatePlan(enhancedInput, screenContext)
+        val rawPlan = selectedProvider.generatePlan(enhancedInput, screenContext)
 
-        // Utility-based ranking of steps if multiple options were implied (simplified)
-        val rankedSteps = utilityEvaluator.rankActions(plan.steps)
+        val rankedSteps = utilityEvaluator.rankActions(rawPlan.steps)
+        val basePlan = rawPlan.copy(steps = rankedSteps, subgoals = subgoals)
 
-        return plan.copy(steps = rankedSteps, subgoals = subgoals)
+        return adaptiveFallbackPlanner?.adaptPlan(basePlan) ?: basePlan
     }
 
     suspend fun verifyExecution(action: AgentAction, screenContext: List<ScreenElement>): VerificationResult {
