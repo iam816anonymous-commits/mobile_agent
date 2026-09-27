@@ -42,6 +42,10 @@ class AgentConfig(context: Context) {
         get() = prefs.getString("routing_policy", "PRIVACY_FIRST") ?: "PRIVACY_FIRST"
         set(value) = prefs.edit().putString("routing_policy", value).apply()
 
+    var aiReasonerEnabled: Boolean
+        get() = prefs.getBoolean("ai_reasoner_enabled", false)
+        set(value) = prefs.edit().putBoolean("ai_reasoner_enabled", value).apply()
+
     /**
      * Validates an API endpoint URL.
      */
