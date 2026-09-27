@@ -19,11 +19,20 @@ interface AgentDao {
     @Query("SELECT * FROM action_history ORDER BY timestamp DESC")
     suspend fun getActionHistory(): List<ActionHistoryEntity>
 
+    @Query("SELECT * FROM action_history ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getRecentActionHistory(limit: Int): List<ActionHistoryEntity>
+
+    @Query("SELECT * FROM action_history WHERE target = :target ORDER BY timestamp DESC")
+    suspend fun getActionsForTarget(target: String): List<ActionHistoryEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertActionHistory(action: ActionHistoryEntity)
 
     @Query("SELECT * FROM failure_history ORDER BY timestamp DESC")
     suspend fun getFailureHistory(): List<FailureHistoryEntity>
+
+    @Query("SELECT * FROM failure_history WHERE actionId = :actionId ORDER BY timestamp DESC")
+    suspend fun getFailuresForAction(actionId: String): List<FailureHistoryEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFailure(failure: FailureHistoryEntity)

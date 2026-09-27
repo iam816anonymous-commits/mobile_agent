@@ -32,6 +32,15 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+
+        <receiver
+            android:name="com.android.agentos.accessibility.SafetyKillSwitchReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.android.agentos.KILL_SWITCH" />
+                <action android:name="android.intent.action.SCREEN_OFF" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

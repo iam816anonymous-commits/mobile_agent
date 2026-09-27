@@ -2,10 +2,15 @@ package com.android.agentos.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.android.agentos.core.models.*
@@ -22,25 +27,70 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
 
     companion object {
         private const val TAG = "AgentAccessibility"
+        const val ACTION_KILL_SWITCH = "com.android.agentos.KILL_SWITCH"
     }
+
+    private var killSwitchReceiver: BroadcastReceiver? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         AgentBridge.instance.registerProvider(this, this)
+        registerKillSwitchReceiver()
+        Log.i(TAG, "AgentAccessibilityService connected & registered with AgentBridge")
+    }
+
+    private fun registerKillSwitchReceiver() {
+        killSwitchReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == ACTION_KILL_SWITCH || intent?.action == Intent.ACTION_SCREEN_OFF) {
+                    Log.w(TAG, "Safety kill-switch received via broadcast! Triggering emergency stop.")
+                    AgentBridge.instance.triggerKillSwitch("Kill-switch broadcast received: ${intent?.action}")
+                }
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(ACTION_KILL_SWITCH)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        }
+        registerReceiver(killSwitchReceiver, filter)
+    }
+
+    override fun onKeyEvent(event: KeyEvent?): Boolean {
+        if (event != null && event.action == KeyEvent.ACTION_DOWN) {
+            // Hardware kill-switch: Volume Down button triggers immediate execution termination
+            if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                Log.w(TAG, "Hardware Kill-Switch triggered via Volume Down key press!")
+                AgentBridge.instance.triggerKillSwitch("Hardware Volume Down button pressed")
+                return true
+            }
+        }
+        return super.onKeyEvent(event)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
     }
 
     override fun onInterrupt() {
+        Log.w(TAG, "AgentAccessibilityService interrupted")
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        killSwitchReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error unregistering kill-switch receiver", e)
+            }
+        }
         AgentBridge.instance.unregisterProvider()
     }
 
     override fun getCurrentScreenState(): ScreenState {
+        if (AgentBridge.instance.isKilled.get()) {
+            Log.w(TAG, "Kill-switch is active. Skipping state retrieval.")
+            return ScreenState(null, ScreenType.UNKNOWN, emptyList())
+        }
         val root = rootInActiveWindow
         val packageName = root?.packageName?.toString()
         val elements = getCurrentScreenHierarchy()
@@ -52,6 +102,7 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
      * Captures the current screen hierarchy and flattens it into a list of ScreenElements.
      */
     override fun getCurrentScreenHierarchy(): List<ScreenElement> {
+        if (AgentBridge.instance.isKilled.get()) return emptyList()
         val root = rootInActiveWindow ?: return emptyList()
         val elements = mutableListOf<ScreenElement>()
         flattenHierarchy(root, elements)
@@ -85,6 +136,10 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
      * Executes a given AgentAction.
      */
     override fun performAction(action: AgentAction): Boolean {
+        if (AgentBridge.instance.isKilled.get()) {
+            Log.w(TAG, "Kill-switch active. Refusing to perform action: ${action.type}")
+            return false
+        }
         Log.d(TAG, "Performing action: ${action.type}")
         return when (action.type) {
             ActionType.CLICK -> {
@@ -121,23 +176,18 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
     }
 
     private fun monitorForElement(target: String?): Boolean {
-        // Long-horizon: retry verification for up to 30 seconds
         val startTime = System.currentTimeMillis()
         while (System.currentTimeMillis() - startTime < 30000) {
+            if (AgentBridge.instance.isKilled.get()) return false
             if (verifyElementVisible(target)) return true
-            Thread.sleep(2000)
+            Thread.sleep(1000)
         }
         return false
     }
 
     private fun scrollToElement(target: String?): Boolean {
         if (target == null) return false
-        for (i in 1..5) {
-            if (verifyElementVisible(target)) return true
-            scroll(true)
-            Thread.sleep(1000)
-        }
-        return false
+        return AccessibilityNodeInfoTraverser.performScrollAndRetry(this, target, maxScrolls = 5)
     }
 
     private fun clickAt(x: Float, y: Float): Boolean {
@@ -152,21 +202,27 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
         if (target == null) return false
         val root = rootInActiveWindow ?: return false
 
-        // Strategy 1: Find by text
-        var nodes = root.findAccessibilityNodeInfosByText(target)
-        if (nodes.isEmpty()) {
-            // Strategy 2: Find by ID
-            nodes = root.findAccessibilityNodeInfosByViewId(target)
+        // First attempt direct find
+        var targetNode = AccessibilityNodeInfoTraverser.findNode(root, target)
+
+        if (targetNode == null) {
+            // Scroll and retry recovery
+            root.recycle()
+            val recovered = AccessibilityNodeInfoTraverser.performScrollAndRetry(this, target, maxScrolls = 3)
+            if (!recovered) return false
+            val newRoot = rootInActiveWindow ?: return false
+            targetNode = AccessibilityNodeInfoTraverser.findNode(newRoot, target)
+            newRoot.recycle()
+        } else {
+            root.recycle()
         }
 
-        if (nodes.isNotEmpty()) {
-            val node = nodes[0]
-            val result = performClickOnNode(node)
-            nodes.forEach { it.recycle() }
-            root.recycle()
+        if (targetNode != null) {
+            val result = performClickOnNode(targetNode)
+            targetNode.recycle()
             return result
         }
-        root.recycle()
+
         return false
     }
 
@@ -180,7 +236,6 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
             parent.recycle()
             result
         } else {
-            // Fallback to clicking center of bounds
             val bounds = Rect()
             node.getBoundsInScreen(bounds)
             clickAt(bounds.centerX().toFloat(), bounds.centerY().toFloat())
@@ -189,7 +244,12 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
 
     private fun typeText(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
-        val focus = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        var focus = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        if (focus == null) {
+            // Fallback: locate editable node in tree
+            focus = findFirstEditableNode(root)
+        }
+
         if (focus != null) {
             val arguments = Bundle()
             arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
@@ -198,11 +258,33 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
             root.recycle()
             return result
         }
+
         root.recycle()
         return false
     }
 
+    private fun findFirstEditableNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        if (node.isEditable) {
+            return node
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i)
+            if (child != null) {
+                val editable = findFirstEditableNode(child)
+                if (editable != null) {
+                    if (editable != child) child.recycle()
+                    return editable
+                }
+                child.recycle()
+            }
+        }
+        return null
+    }
+
     override suspend fun verifyAction(action: AgentAction, screenContext: List<ScreenElement>): VerificationResult {
+        if (AgentBridge.instance.isKilled.get()) {
+            return VerificationResult(false, 0f, "Execution halted by safety kill-switch")
+        }
         return when (action.type) {
             ActionType.VERIFY_ELEMENT -> {
                 val success = verifyElementVisible(action.target)
@@ -219,44 +301,17 @@ class AgentAccessibilityService : AccessibilityService(), AccessibilityProvider,
     private fun verifyElementVisible(target: String?): Boolean {
         if (target == null) return false
         val root = rootInActiveWindow ?: return false
-        val nodesByText = root.findAccessibilityNodeInfosByText(target)
-        if (nodesByText.isNotEmpty()) {
-            nodesByText.forEach { it.recycle() }
-            root.recycle()
-            return true
-        }
-        val nodesById = root.findAccessibilityNodeInfosByViewId(target)
-        if (nodesById.isNotEmpty()) {
-            nodesById.forEach { it.recycle() }
-            root.recycle()
-            return true
-        }
+        val node = AccessibilityNodeInfoTraverser.findNode(root, target)
+        val visible = node != null
+        node?.recycle()
         root.recycle()
-        return false
+        return visible
     }
 
     private fun scroll(down: Boolean): Boolean {
         val root = rootInActiveWindow ?: return false
-        val action = if (down) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
-        val result = performScrollOnFirstScrollable(root, action)
+        val result = AccessibilityNodeInfoTraverser.scrollContainer(root, forward = down)
         root.recycle()
         return result
-    }
-
-    private fun performScrollOnFirstScrollable(node: AccessibilityNodeInfo, action: Int): Boolean {
-        if (node.isScrollable) {
-            return node.performAction(action)
-        }
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i)
-            if (child != null) {
-                if (performScrollOnFirstScrollable(child, action)) {
-                    child.recycle()
-                    return true
-                }
-                child.recycle()
-            }
-        }
-        return false
     }
 }
